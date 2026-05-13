@@ -82,7 +82,7 @@ static void scroll(void)
 
 void vga_putchar(char c)
 {
-    if (s_putchar_hook) s_putchar_hook(c);
+    if (s_putchar_hook) s_putchar_hook(c, cur_color);
     if (c == '\n') {
         cur_col = 0;
         cur_row++;

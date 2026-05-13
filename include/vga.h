@@ -24,5 +24,5 @@ void vga_export_fb_mirror_once(void);
 /* Re-import full 80x25 from VRAM (fixes drift / scroll glitches on VNC mirror). */
 void vga_fb_mirror_refresh(void);
 
-typedef void (*VGAPutcharHook)(char c);
+typedef void (*VGAPutcharHook)(char c, uint8_t color);
 void vga_set_putchar_hook(VGAPutcharHook hook);

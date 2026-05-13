@@ -23,10 +23,21 @@
 #include "htop.h"
 #include "doom.h"
 #include "desktop.h"
+#include "vnet.h"
 
 static void cmd_desktop(int argc, char **argv) {
     (void)argc; (void)argv;
     desktop_run();
+}
+
+static void cmd_ping(int argc, char **argv) {
+    if (argc < 2) { kprintf("Usage: ping <ip>\n"); return; }
+    net_ping(argv[1]);
+}
+
+static void cmd_netcfg(int argc, char **argv) {
+    (void)argc; (void)argv;
+    vnet_print_config();
 }
 
 #define CMD_MAX    256
@@ -317,241 +328,88 @@ static void cmd_hello(int c, char **v) { (void)c;(void)v;
     vga_set_color(VGA_WHITE, VGA_BLACK);
 }
 
-/*
- * Neofetch-style info layout; tall sharp slash V (\\\ vs ///), reads cleanly on VGA.
- */
-#define NF_LOGO_W 32
-typedef enum { NF_V_ARM, NF_V_ZIG, NF_V_DBL, NF_V_TIP } NfVKind;
-typedef struct { int lp, bs, gap, fs; NfVKind kind; } NfVLine;
 
-static int nf_v_row_width(const NfVLine *L) {
-    switch (L->kind) {
-    case NF_V_ARM: return L->lp + L->bs + L->gap + L->fs;
-    case NF_V_ZIG: return L->lp + L->bs + 4;
-    case NF_V_DBL: return L->lp + L->bs + 2;
-    case NF_V_TIP: return L->lp + 2;
-    default:       return 0;
-    }
-}
-
-static void nf_emit_v_row(const NfVLine *L) {
-    for (int i = 0; i < L->lp; i++) kprintf(" ");
-    for (int i = 0; i < L->bs; i++) kprintf("\\");
-    switch (L->kind) {
-    case NF_V_ARM:
-        for (int i = 0; i < L->gap; i++) kprintf(" ");
-        for (int i = 0; i < L->fs; i++) kprintf("/");
-        break;
-    case NF_V_ZIG:
-        kprintf("\\/\\/");
-        break;
-    case NF_V_DBL:
-        kprintf("//");
-        break;
-    case NF_V_TIP:
-        kprintf("\\/");
-        break;
-    }
-}
-
-static void nf_logo_pad_w(int w) {
-    while (w < NF_LOGO_W) {
-        kprintf(" ");
-        w++;
-    }
-}
 
 static void cmd_neofetch(int argc, char **argv) {
-    (void)argc;
-    (void)argv;
-    /* Narrow + tall: gap −2 per row; 5-wide stroke reads sharper than 6 on 80×25 */
-    static const NfVLine nf_v[] = {
-        {0, 5, 20, 5, NF_V_ARM},
-        {2, 5, 18, 5, NF_V_ARM},
-        {4, 5, 16, 5, NF_V_ARM},
-        {6, 5, 14, 5, NF_V_ARM},
-        {8, 5, 12, 5, NF_V_ARM},
-        {10, 5, 10, 5, NF_V_ARM},
-        {12, 5, 8, 5, NF_V_ARM},
-        {14, 5, 6, 5, NF_V_ARM},
-        {16, 5, 4, 5, NF_V_ARM},
-        {18, 5, 2, 5, NF_V_ARM},
-        {20, 4, 0, 0, NF_V_ZIG},
-        {22, 3, 0, 0, NF_V_DBL},
-        {24, 2, 0, 0, NF_V_DBL},
-        {26, 0, 0, 0, NF_V_TIP},
+    (void)argc; (void)argv;
+
+    static const char *logo[] = {
+        "   ____    ____   ",
+        "   \\   \\  /   /   ",
+        "    \\   \\/   /    ",
+        "     \\      /     ",
+        "      \\    /      ",
+        "       \\  /       ",
+        "        \\/        ",
+        "                  ",
+        "      V I B E     "
     };
-    const int logo_n = (int)(sizeof(nf_v) / sizeof(nf_v[0]));
-    static const VGAColor logo_fg[] = {
-        VGA_LCYAN, VGA_LCYAN, VGA_LCYAN, VGA_LBLUE, VGA_LBLUE,
-        VGA_LGREEN, VGA_LMAGENTA, VGA_LMAGENTA, VGA_LRED, VGA_YELLOW,
-        VGA_YELLOW, VGA_WHITE, VGA_LGREEN, VGA_WHITE,
+    const int logo_n = 9;
+
+    VGAColor logo_colors[] = {
+        VGA_LCYAN, VGA_LCYAN, VGA_LBLUE, VGA_LBLUE, VGA_LMAGENTA, VGA_LRED, VGA_LRED, VGA_WHITE, VGA_LGREEN
     };
 
     uint64_t sec = timer_ticks() / 1000;
-    uint64_t d = sec / 86400;
-    sec %= 86400;
-    uint64_t h = sec / 3600;
-    sec %= 3600;
+    uint64_t d = sec / 86400; sec %= 86400;
+    uint64_t h = sec / 3600;  sec %= 3600;
     uint64_t m = sec / 60;
 
     char uptline[80];
-    ksprintf(uptline, sizeof(uptline),
-        "%llu day%s, %llu hour%s, %llu mins",
-        (unsigned long long)d, (d == 1 ? "" : "s"),
-        (unsigned long long)h, (h == 1 ? "" : "s"),
-        (unsigned long long)m);
+    ksprintf(uptline, sizeof(uptline), "%llu d, %llu h, %llu m", d, h, m);
 
     uint64_t fp = pmm_free_pages(), tp = pmm_total_pages(), up = tp - fp;
-    unsigned mem_pct = tp ? (unsigned)((up * 100) / tp) : 0;
     char memline[80];
-    ksprintf(memline, sizeof(memline), "%llu MiB / %llu MiB (%u%%)",
+    ksprintf(memline, sizeof(memline), "%llu MiB / %llu MiB",
         (unsigned long long)((up * PAGE_SIZE) / (1024 * 1024)),
-        (unsigned long long)((tp * PAGE_SIZE) / (1024 * 1024)),
-        mem_pct);
+        (unsigned long long)((tp * PAGE_SIZE) / (1024 * 1024)));
 
-    const int info_n = 19;
-    for (int row = 0; row < info_n; row++) {
-        if (row < logo_n) {
-            vga_set_color(logo_fg[row], VGA_BLACK);
-            nf_emit_v_row(&nf_v[row]);
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            nf_logo_pad_w(nf_v_row_width(&nf_v[row]));
+    const int info_n = 12;
+    for (int i = 0; i < info_n; i++) {
+        /* Logo column */
+        if (i < logo_n) {
+            vga_set_color(logo_colors[i], VGA_BLACK);
+            kprintf("%s", logo[i]);
         } else {
-            kprintf("%*s", NF_LOGO_W, "");
+            kprintf("                  ");
         }
+        
         kprintf("   ");
+        vga_set_color(VGA_WHITE, VGA_BLACK);
 
-        switch (row) {
-        case 0:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("vnl@vnl\n");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            break;
-        case 1:
-            kprintf("-------\n");
-            break;
-        case 2:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("OS: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("Vibe Not Linux x86_64\n");
-            break;
-        case 3:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Host: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("VNL PC\n");
-            break;
-        case 4:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Kernel: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("VNL 0.2.0 #1 SMP x86_64\n");
-            break;
-        case 5:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Uptime: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("%s\n", uptline);
-            break;
-        case 6:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Packages: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("N/A\n");
-            break;
-        case 7:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Shell: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("sh\n");
-            break;
-        case 8:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Resolution: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("80x25\n");
-            break;
-        case 9:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("DE: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("N/A\n");
-            break;
-        case 10:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("WM: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("N/A\n");
-            break;
-        case 11:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("WM Theme: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("N/A\n");
-            break;
-        case 12:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Theme: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("N/A\n");
-            break;
-        case 13:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Icons: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("N/A\n");
-            break;
-        case 14:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Terminal: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("VGA text\n");
-            break;
-        case 15:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Terminal Font: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("kernel 8x16\n");
-            break;
-        case 16:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("CPU: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("x86_64\n");
-            break;
-        case 17:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("GPU: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("N/A\n");
-            break;
-        case 18:
-            vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("Memory: ");
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            kprintf("%s\n", memline);
-            break;
-        default:
-            kprintf("\n");
-            break;
+        /* Info column */
+        switch (i) {
+            case 0: vga_set_color(VGA_LGREEN, VGA_BLACK); kprintf("vnl@vnl\n"); break;
+            case 1: kprintf("-------\n"); break;
+            case 2: vga_set_color(VGA_LGREEN, VGA_BLACK); kprintf("OS: "); vga_set_color(VGA_WHITE, VGA_BLACK); kprintf("Vibe Not Linux x86_64\n"); break;
+            case 3: vga_set_color(VGA_LGREEN, VGA_BLACK); kprintf("Kernel: "); vga_set_color(VGA_WHITE, VGA_BLACK); kprintf("VNL 0.2.0\n"); break;
+            case 4: vga_set_color(VGA_LGREEN, VGA_BLACK); kprintf("Uptime: "); vga_set_color(VGA_WHITE, VGA_BLACK); kprintf("%s\n", uptline); break;
+            case 5: vga_set_color(VGA_LGREEN, VGA_BLACK); kprintf("Shell: "); vga_set_color(VGA_WHITE, VGA_BLACK); kprintf("sh\n"); break;
+            case 6: vga_set_color(VGA_LGREEN, VGA_BLACK); kprintf("DE: "); vga_set_color(VGA_WHITE, VGA_BLACK); kprintf("VNL 9x\n"); break;
+            case 7: vga_set_color(VGA_LGREEN, VGA_BLACK); kprintf("Memory: "); vga_set_color(VGA_WHITE, VGA_BLACK); kprintf("%s\n", memline); break;
+            case 8: kprintf("\n"); break;
+            case 9:
+                for (int c = 0; c < 8; c++) {
+                    vga_set_color(VGA_WHITE, (VGAColor)c);
+                    kprintf("  ");
+                }
+                vga_set_color(VGA_WHITE, VGA_BLACK);
+                kprintf("\n");
+                break;
+            case 10:
+                for (int c = 8; c < 16; c++) {
+                    vga_set_color(VGA_WHITE, (VGAColor)c);
+                    kprintf("  ");
+                }
+                vga_set_color(VGA_WHITE, VGA_BLACK);
+                kprintf("\n");
+                break;
+            default: kprintf("\n"); break;
         }
-    }
-
-    /* `info cols` — classic neofetch 16-color block row (first 8 entries) */
-    kprintf("%*s   ", NF_LOGO_W, "");
-    static const VGAColor palette[] = {
-        VGA_BLACK, VGA_RED, VGA_GREEN, VGA_YELLOW,
-        VGA_BLUE, VGA_MAGENTA, VGA_CYAN, VGA_WHITE,
-    };
-    for (size_t i = 0; i < sizeof(palette) / sizeof(palette[0]); i++) {
-        vga_set_color(palette[i], palette[i]);
-        kprintf("  ");
     }
     vga_set_color(VGA_WHITE, VGA_BLACK);
-    kprintf("\n\n");
 }
+
 static void cmd_ls(int argc, char **argv) {
     const char *path = (argc>1) ? argv[1] : ".";
     char names[VFS_MAX_NODES][VFS_NAME_MAX];
@@ -718,7 +576,7 @@ static const Command cmds[] = {
     {"tail",cmd_tail},{"sort",cmd_sort},{"uniq",cmd_uniq},{"tr",cmd_tr},
     {"tee",cmd_tee},{"test",cmd_test_cmd},{"vinstall",cmd_vinstall},
     {"vpkg",cmd_vpkg},{"neovim-vnl",cmd_neovim_vnl},{"htop-gui",cmd_htop_gui},
-    {"doom-generic",cmd_doom_generic},{"desktop",cmd_desktop},{NULL,NULL}
+    {"doom-generic",cmd_doom_generic},{"desktop",cmd_desktop},{"vbrowser",NULL},{"ping",cmd_ping},{"netcfg",cmd_netcfg},{NULL,NULL}
 };
 
 static bool is_elf_file(const char *path) {

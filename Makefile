@@ -55,7 +55,7 @@ iso: $(KERNEL)
 	@echo "[ISO] Legacy USB: dd if=$(ISO) of=/dev/sdX bs=4M conv=fsync  (whole sdX, not sdX1). Try CSM USB-HDD vs USB-ZIP."
 
 run: iso
-	qemu-system-x86_64 -cdrom $(ISO) -m 256M -serial stdio -no-reboot -no-shutdown
+	qemu-system-x86_64 -cdrom $(ISO) -m 256M -serial stdio -no-reboot -no-shutdown -net nic,model=rtl8139 -net user
 
 run-kernel: $(KERNEL)
 	qemu-system-x86_64 -kernel $(KERNEL) -m 256M -serial stdio -no-reboot -no-shutdown

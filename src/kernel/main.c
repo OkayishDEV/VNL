@@ -40,6 +40,7 @@
 #include "unix_socket.h"
 #include "gui_env.h"
 #include "mouse.h"
+#include "rtl8139.h"
 
 extern uint8_t kernel_end[];
 void shell_run(void);
@@ -222,6 +223,16 @@ void kernel_main(uint32_t magic, uint64_t mb_info)
     /* Step 12: ACPI */
     kprintf("[INIT] ACPI...\n");
     acpi_init();
+
+    /* Step 12b: RTL8139 Network */
+    kprintf("[INIT] Networking (RTL8139)...\n");
+    for (int i = 0; i < pci_dev_count(); i++) {
+        const PCIDevice *d = pci_get_dev(i);
+        if (d->vendor == 0x10EC && d->device_id == 0x8139) {
+            rtl8139_init(d->bus, d->dev, d->func);
+            break;
+        }
+    }
 
     /* Step 13: Syscall */
     kprintf("[INIT] Syscall (INT 0x80)...\n");
