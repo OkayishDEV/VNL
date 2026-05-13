@@ -102,6 +102,12 @@ void fb_plot(uint32_t x, uint32_t y, uint32_t c)
     *(uint32_t *)(s_fb_virt + y * s_fb.pitch + x * 4) = c;
 }
 
+uint32_t fb_get_pixel(uint32_t x, uint32_t y)
+{
+    if (!s_fb_ok || x >= s_fb.width || y >= s_fb.height) return 0;
+    return *(uint32_t *)(s_fb_virt + y * s_fb.pitch + x * 4);
+}
+
 void fb_fill_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t c)
 {
     if (!s_fb_ok || w == 0 || h == 0) return;
@@ -297,7 +303,8 @@ static void fb_console_scroll_gfx_one_line(void)
     uint32_t text_w = FB_MIRROR_COLS * 8;
     if (left + text_w > s_fb.width)
         text_w = s_fb.width - left;
-    uint32_t bot = s_fb.height;
+    uint32_t bot = FB_MIRROR_ROWS * 8;
+    if (bot > s_fb.height) bot = s_fb.height;
     uint32_t line = 8;
     uint32_t text_h = (bot > top) ? (bot - top) : 0;
     if (text_h <= line) return;

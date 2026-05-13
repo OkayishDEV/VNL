@@ -15,8 +15,13 @@
 #include "sh.h"
 #include "user_task.h"
 #include "fb.h"
-#include "x11_session.h"
+#include "gui.h"
 #include "elf_load.h"
+#include "vinstall.h"
+#include "vpkg.h"
+#include "neovim.h"
+#include "htop.h"
+#include "doom.h"
 
 #define CMD_MAX    256
 #define ARG_MAX    16
@@ -271,7 +276,8 @@ static void cmd_help(int c, char **v)   { (void)c;(void)v;
     kprintf("Commands: help neofetch uname mem uptime clear echo color hello\n");
     kprintf("          ls cat write mkdir rm cd pwd\n");
     kprintf("          ps kill sleep lspci poweroff reboot panic halt\n");
-    kprintf("          sh bash eval source ring3test startx x11info\n");
+    kprintf("          sh bash eval source ring3test gui guiinfo vinstall vpkg\n");
+    kprintf("          neovim-vnl htop-gui doom-generic\n");
     kprintf("          grep wc head tail sort uniq tr tee\n");
     kprintf("Shell: Variables, if/while/for, pipes, redirects, functions\n");
 }
@@ -635,12 +641,20 @@ static void cmd_panic(int argc, char **argv) {
 static void cmd_halt(int c, char **v) { (void)c;(void)v; kprintf("Halting.\n"); halt_loop(); }
 
 static void cmd_sh(int argc, char **argv) {
-    if (argc > 1) sh_run_file(argv[1]);
-    else          sh_interactive(false);
+    if (argc > 1) {
+        sh_run_file(argv[1]);
+    } else {
+        kprintf("sh: interactive sub-shell disabled. Please use the primary VNL shell.\n");
+        kprintf("    Usage: sh <script_file>\n");
+    }
 }
 static void cmd_bash(int argc, char **argv) {
-    if (argc > 1) sh_run_file(argv[1]);
-    else          sh_interactive(true);
+    if (argc > 1) {
+        sh_run_file(argv[1]);
+    } else {
+        kprintf("bash: interactive sub-shell disabled. Please use the primary VNL shell.\n");
+        kprintf("      Usage: bash <script_file>\n");
+    }
 }
 /* Run a string as sh */
 static void cmd_eval(int argc, char **argv) {
@@ -661,49 +675,25 @@ static void cmd_ring3test(int c, char **v) {
     user_ring3_demo_spawn();
 }
 
-static void cmd_x11info(int c, char **v) {
+static void cmd_guiinfo(int c, char **v) {
     (void)c;
     (void)v;
-    kprintf("X11/DE staging (kernel-side):\n");
-    kprintf("  GRUB default: linear fb 1024x768 + Multiboot2 FB tag\n");
-    kprintf("  Layout: /tmp/.X11-unix, /etc/X11, /var/log - see /etc/vnl-x11.env\n");
-    kprintf("  Syscalls: socket bind listen accept connect socketpair; sendto/recvfrom (peer addr NULL)\n");
-    kprintf("  Video: /dev/fb0 ioctl + mmap (DRI/KMS still TODO for real Mesa)\n");
-    kprintf("  startx: runs embedded /usr/bin/Xorg (ring3 ELF mmap fb) or kernel FB fallback\n");
+    kprintf("VNL Bare-Metal GUI Subsystem:\n");
+    kprintf("  Direct-mapped linear framebuffer (1024x768x32)\n");
+    kprintf("  Double-buffered software pointer and vector widget rendering\n");
+    kprintf("  Type 'gui' to launch the interactive environment.\n");
 }
 
-static void cmd_startx(int c, char **v) {
+static void cmd_gui(int c, char **v) {
     (void)c;
     (void)v;
     if (!fb_is_available()) {
-        kprintf("startx: linear framebuffer required (GRUB entry with Multiboot2 FB / VNC).\n");
-        kprintf("        Text-only VGA cannot run the graphical session.\n");
+        kprintf("gui: linear framebuffer required (boot base entry with 1024x768 FB).\n");
         return;
     }
-    sh_run_string("export DISPLAY=:0\nexport XAUTHORITY=/run/xauth_0\n");
-    int fd = vfs_open("/tmp/.X11-unix/X0", VFS_O_WRITE | VFS_O_CREATE | VFS_O_TRUNC);
-    if (fd >= 0) {
-        static const char stub[] = "# VNL stub AF_UNIX path for :0\n";
-        vfs_write(fd, stub, sizeof(stub) - 1);
-        vfs_close(fd);
-    }
-    int e = vfs_open("/run/xauth_0", VFS_O_WRITE | VFS_O_CREATE | VFS_O_TRUNC);
-    if (e >= 0)
-        vfs_close(e);
-    kprintf("DISPLAY=:0 - starting userspace /usr/bin/Xorg (embedded ELF) if present...\n");
-    int px = vnl_spawn_elf_path("/usr/bin/Xorg");
-    if (px > 0) {
-        kprintf("  Xorg stub pid %u: fills FB then exits; shell waits (no prompt until done).\n",
-                (unsigned)px);
-        sched_wait_pid((uint32_t)px);
-        /* Stub paints the whole linear FB; mirror only updates ~80x25×8px — clear first. */
-        fb_console_reset();
-        vga_fb_mirror_refresh();
-        kprintf("  Session ended.\n");
-        return;
-    }
-    kprintf("  (spawn failed %d) kernel FB session - Esc or q to return.\n", px);
-    x11_minimal_session_run();
+    kprintf("Launching premium interactive bare-metal GUI desktop...\n");
+    gui_session_run();
+    kprintf("  GUI session ended.\n");
 }
 
 typedef struct { const char *name; void (*fn)(int, char**); } Command;
@@ -715,13 +705,24 @@ static const Command cmds[] = {
     {"sleep",cmd_sleep},{"lspci",cmd_lspci},{"poweroff",cmd_poweroff},
     {"reboot",cmd_reboot},{"panic",cmd_panic},{"halt",cmd_halt},
     {"ring3test",cmd_ring3test},
-    {"startx",cmd_startx},
-    {"x11info",cmd_x11info},
+    {"gui",cmd_gui},
+    {"guiinfo",cmd_guiinfo},
     {"sh",cmd_sh},{"bash",cmd_bash},{"eval",cmd_eval},{"source",cmd_source},
     {".",cmd_source},{"grep",cmd_grep},{"wc",cmd_wc},{"head",cmd_head},
     {"tail",cmd_tail},{"sort",cmd_sort},{"uniq",cmd_uniq},{"tr",cmd_tr},
-    {"tee",cmd_tee},{"test",cmd_test_cmd},{NULL,NULL}
+    {"tee",cmd_tee},{"test",cmd_test_cmd},{"vinstall",cmd_vinstall},
+    {"vpkg",cmd_vpkg},{"neovim-vnl",cmd_neovim_vnl},{"htop-gui",cmd_htop_gui},
+    {"doom-generic",cmd_doom_generic},{NULL,NULL}
 };
+
+static bool is_elf_file(const char *path) {
+    int fd = vfs_open(path, VFS_O_READ);
+    if (fd < 0) return false;
+    char magic[4];
+    int n = vfs_read(fd, magic, 4);
+    vfs_close(fd);
+    return (n == 4 && magic[0] == 0x7f && magic[1] == 'E' && magic[2] == 'L' && magic[3] == 'F');
+}
 
 /* ---- Public: called by sh.c to dispatch built-in commands -------- */
 int shell_exec_builtin(int argc, char **argv) {
@@ -732,6 +733,31 @@ int shell_exec_builtin(int argc, char **argv) {
             return sh_last_status;
         }
     }
+    /* Check if package executable file exists in /usr/bin or directly */
+    char tpath[128];
+    if (argv[0][0] == '/') {
+        strncpy(tpath, argv[0], sizeof(tpath)-1);
+    } else {
+        ksprintf(tpath, sizeof(tpath), "/usr/bin/%s", argv[0]);
+    }
+    
+    const char *target_exe = NULL;
+    if (vfs_resolve(tpath) >= 0) target_exe = tpath;
+    else if (vfs_resolve(argv[0]) >= 0) target_exe = argv[0];
+
+    if (target_exe) {
+        if (is_elf_file(target_exe)) {
+            int pid = vnl_spawn_elf_path(target_exe);
+            if (pid >= 0) {
+                sched_wait_pid((uint32_t)pid);
+                return 0;
+            }
+            kprintf("sh: cannot execute binary %s\n", target_exe);
+            return 126;
+        }
+        return sh_run_file(target_exe);
+    }
+
     kprintf("sh: %s: command not found\n", argv[0]);
     return 127;
 }

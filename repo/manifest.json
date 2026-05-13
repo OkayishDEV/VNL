@@ -1,0 +1,31 @@
+{
+  "repository": "VibuxDevs/VNL-Packages",
+  "version": "1.0.0",
+  "updated_at": "2026-05-12T22:00:00Z",
+  "packages": [
+    {
+      "name": "neovim-vnl",
+      "version": "0.9.5",
+      "description": "Premium modal text editor compiled for bare-metal VNL ring3.",
+      "url": "https://raw.githubusercontent.com/VibuxDevs/VNL-Packages/main/pkgs/neovim-vnl.bin",
+      "checksum": "a8f5c2d3e9b1",
+      "size": 8824
+    },
+    {
+      "name": "htop-gui",
+      "version": "3.3.0",
+      "description": "Real-time process viewer and system resource monitor graphical applet.",
+      "url": "https://raw.githubusercontent.com/VibuxDevs/VNL-Packages/main/pkgs/htop-gui.bin",
+      "checksum": "f1e2d3c4b5a6",
+      "size": 7048
+    },
+    {
+      "name": "doom-generic",
+      "version": "1.8.0",
+      "description": "Classic 1993 first-person shooter bare-metal linear framebuffer port.",
+      "url": "https://raw.githubusercontent.com/VibuxDevs/VNL-Packages/main/pkgs/doom-generic.bin",
+      "checksum": "c7b8a9f0e1d2",
+      "size": 6872
+    }
+  ]
+}

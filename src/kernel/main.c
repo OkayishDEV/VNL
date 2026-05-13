@@ -38,7 +38,8 @@
 #include "sched.h"
 #include "devfs.h"
 #include "unix_socket.h"
-#include "x11_env.h"
+#include "gui_env.h"
+#include "mouse.h"
 
 extern uint8_t kernel_end[];
 void shell_run(void);
@@ -165,18 +166,20 @@ void kernel_main(uint32_t magic, uint64_t mb_info)
     kprintf("[INIT] Keyboard...\n");
     keyboard_init();
 
-    /* PS/2 mouse driver remains in-tree but is not started at boot. */
+    /* Step 9b: Mouse */
+    kprintf("[INIT] Mouse...\n");
+    mouse_init();
 
     /* Step 10: VFS */
     kprintf("[INIT] VFS (ramfs)...\n");
     vfs_init();
 
-    kprintf("[INIT] devfs (/dev/fb0, /dev/null) + mmap/ioctl (Xorg/DRI groundwork)...\n");
+    kprintf("[INIT] devfs (/dev/fb0, /dev/null)...\n");
     devfs_init();
 
-    kprintf("[INIT] AF_UNIX sockets + X11/DE directory layout...\n");
+    kprintf("[INIT] AF_UNIX sockets + GUI environment layout...\n");
     unix_socket_init();
-    x11_environment_init();
+    gui_environment_init();
 
     /* Step 11: PCI */
     kprintf("[INIT] PCI...\n");

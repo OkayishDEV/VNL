@@ -1,6 +1,5 @@
 /*
- * Minimal AF_UNIX SOCK_STREAM — enough for X11's Unix-domain transport
- * (/tmp/.X11-unix/X0) once a userspace X server runs.
+ * Minimal AF_UNIX SOCK_STREAM Unix-domain local socket transport.
  */
 #include "unix_socket.h"
 #include "vfs.h"

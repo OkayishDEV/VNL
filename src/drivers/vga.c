@@ -114,12 +114,10 @@ void vga_init(void)
 
 void vga_export_fb_mirror_once(void)
 {
-    if (!fb_is_available()) return;
-    fb_console_import_vga_buffer(VGA_MEM, cur_row, cur_col);
+    /* No-op: legacy physical VRAM at 0xB8000 contains uninitialized BIOS garbage in linear FB mode */
 }
 
 void vga_fb_mirror_refresh(void)
 {
-    if (!fb_is_available()) return;
-    fb_console_import_vga_buffer(VGA_MEM, cur_row, cur_col);
+    /* No-op to prevent continuous redundant full-screen redraws in shell loops */
 }

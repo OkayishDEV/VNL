@@ -22,6 +22,7 @@ bool fb_get_mmap_region(uint64_t *phys_start, uint64_t *byte_len,
 
 void fb_fill_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color);
 void fb_plot(uint32_t x, uint32_t y, uint32_t color);
+uint32_t fb_get_pixel(uint32_t x, uint32_t y);
 void fb_draw_string(uint32_t x, uint32_t y, const char *s, uint32_t fg, uint32_t bg);
 
 /* Mirror VGA-style text to the linear framebuffer (for VNC / GOP viewers). */
