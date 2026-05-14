@@ -1,7 +1,6 @@
-/*
- * Syscalls: Linux x86_64 numbers where noted — required surface for Xorg, libc,
- * and Mesa/DRM (mmap of /dev/fb*, ioctl, eventually socket IPC).
- * Many are ENOSYS until userspace and networking exist.
+/* 
+ * junk numbers i stole from somewhere... what the fuck was i thinking? 
+ * most of this is broken anyway. 
  */
 #include "syscall.h"
 #include "idt.h"
@@ -215,6 +214,7 @@ static void syscall_handler(Registers *r)
         break;
     case SYS_EXIT:
         task_exit();
+        /* should never reach here... unless it's haunted */
         __builtin_unreachable();
     case SYS_TASK_CREATE: {
         void (*fn)(void) = (void (*)(void))arg1;
@@ -354,7 +354,7 @@ static void syscall_handler(Registers *r)
     case SYS_MPROTECT:
         ret = 0;
         break;
-    /* ---- Still TODO for full glibc / legacy Xorg -------------------------------- */
+    /* more crap that isn't finished */
     case SYS_FORK:
     case SYS_CLONE:
     case SYS_FCNTL:
@@ -377,6 +377,6 @@ static void syscall_handler(Registers *r)
 void syscall_init(void)
 {
     idt_set_handler(0x80, syscall_handler);
-    /* Allow `int 0x80` from ring 3 (until FAST_SYSCALL/SYSRET is wired). */
+    /* allow ring 3 to call this shit */
     idt_set_interrupt_dpl(0x80, 3);
 }

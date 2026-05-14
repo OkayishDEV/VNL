@@ -15,16 +15,17 @@
 #include "sh.h"
 #include "user_task.h"
 #include "fb.h"
-#include "gui.h"
-#include "elf_load.h"
 #include "vinstall.h"
 #include "vpkg.h"
-#include "neovim.h"
-#include "htop.h"
-#include "doom.h"
 #include "desktop.h"
+#include "gui.h"
+#include "elf_load.h"
 #include "vnet.h"
-#include "vsnake.h"
+
+extern void cmd_neovim_vnl(int argc, char **argv);
+extern void cmd_htop_gui(int argc, char **argv);
+extern void cmd_doom_generic(int argc, char **argv);
+extern void cmd_vsnake(int argc, char **argv);
 
 static void cmd_desktop(int argc, char **argv) {
     (void)argc; (void)argv;
@@ -197,7 +198,7 @@ static void cmd_grep(int argc, char **argv) {
         const char *sc = sh_getvar("STDIN_CONTENT");
         src = sc ? sc : "";
     }
-    /* Line-by-line search */
+    /* lines by lines... what a drag */
     const char *p = src;
     while (*p) {
         const char *line_s = p;
@@ -238,7 +239,7 @@ static void cmd_tail(int argc, char **argv) {
     const char *src=NULL; char filebuf[SH_PIPE_BUF];
     if(path){int fd=vfs_open(path,VFS_O_READ);if(fd<0){kprintf("tail: not found\n");return;}int r=vfs_read(fd,filebuf,sizeof(filebuf)-1);if(r<0)r=0;filebuf[r]='\0';vfs_close(fd);src=filebuf;}
     else{/* use sh_getvar() */const char *sc=sh_getvar("STDIN_CONTENT");src=sc?sc:"";}
-    /* count lines */
+    /* how many damn lines are in here? */
     int total=0; for(const char *p=src;*p;p++)if(*p=='\n')total++;
     int skip=total>n?total-n:0; const char *p=src; int ln2=0;
     while(*p){if(*p=='\n'){ln2++;if(ln2==skip){p++;break;}}p++;}
@@ -249,12 +250,12 @@ static void cmd_sort(int c, char **v) {
     (void)c;(void)v;
     /* use sh_getvar() */ const char *sc=sh_getvar("STDIN_CONTENT");
     if(!sc){return;}
-    /* collect lines */
+    /* grab the lines... if you can */
     char *lines[256]; int nl=0; char buf[SH_PIPE_BUF];
     strncpy(buf,sc,SH_PIPE_BUF-1);
     char *p=buf;
     while(*p&&nl<256){lines[nl++]=p;while(*p&&*p!='\n')p++;if(*p)*p++='\0';}
-    /* bubble sort */
+    /* bubble sort? kill me now. */
     for(int i=0;i<nl-1;i++)for(int j=i+1;j<nl;j++)if(strcmp(lines[i],lines[j])>0){char*t=lines[i];lines[i]=lines[j];lines[j]=t;}
     for(int i=0;i<nl;i++)kprintf("%s\n",lines[i]);
 }
@@ -286,8 +287,7 @@ static void cmd_tee(int argc, char **argv) {
 }
 
 static void cmd_test_cmd(int argc, char **argv) {
-    /* 'test' without brackets, useful in scripts */
-    (void)argc;(void)argv; /* handled by sh.c builtins */
+    (void)argc;(void)argv; /* some sh shit */
 }
 
 static void cmd_help(int c, char **v)   { (void)c;(void)v;
@@ -295,7 +295,7 @@ static void cmd_help(int c, char **v)   { (void)c;(void)v;
     kprintf("          ls cat write mkdir rm cd pwd\n");
     kprintf("          ps kill sleep lspci poweroff reboot panic halt\n");
     kprintf("          sh bash eval source ring3test gui guiinfo vinstall vpkg desktop\n");
-    kprintf("          neovim-vnl htop-gui doom-generic\n");
+    kprintf("          neovim htop doom\n");
     kprintf("          grep wc head tail sort uniq tr tee\n");
     kprintf("Shell: Variables, if/while/for, pipes, redirects, functions\n");
 }
@@ -367,7 +367,7 @@ static void cmd_neofetch(int argc, char **argv) {
 
     const int info_n = 12;
     for (int i = 0; i < info_n; i++) {
-        /* Logo column */
+        /* logo column... artistic garbage */
         if (i < logo_n) {
             vga_set_color(logo_colors[i], VGA_BLACK);
             kprintf("%s", logo[i]);
@@ -378,7 +378,7 @@ static void cmd_neofetch(int argc, char **argv) {
         kprintf("   ");
         vga_set_color(VGA_WHITE, VGA_BLACK);
 
-        /* Info column */
+        /* info column... more junk */
         switch (i) {
             case 0: vga_set_color(VGA_LGREEN, VGA_BLACK); kprintf("vnl@vnl\n"); break;
             case 1: kprintf("-------\n"); break;
@@ -521,14 +521,14 @@ static void cmd_bash(int argc, char **argv) {
         kprintf("      Usage: bash <script_file>\n");
     }
 }
-/* Run a string as sh */
+/* eval some strings... hope it doesn't crash */
 static void cmd_eval(int argc, char **argv) {
     if (argc < 2) { kprintf("Usage: eval <script>\n"); return; }
     char script[CMD_MAX*4]; script[0]='\0';
     for (int i=1; i<argc; i++) { strncat(script,argv[i],sizeof(script)-strlen(script)-1); if(i<argc-1) strncat(script," ",sizeof(script)-strlen(script)-1); }
     sh_run_string(script);
 }
-/* Execute shell command (dot/source) */
+/* source some file... whatever */
 static void cmd_source(int argc, char **argv) {
     if (argc < 2) { kprintf("Usage: source <file>\n"); return; }
     sh_run_file(argv[1]);
@@ -576,8 +576,8 @@ static const Command cmds[] = {
     {".",cmd_source},{"grep",cmd_grep},{"wc",cmd_wc},{"head",cmd_head},
     {"tail",cmd_tail},{"sort",cmd_sort},{"uniq",cmd_uniq},{"tr",cmd_tr},
     {"tee",cmd_tee},{"test",cmd_test_cmd},{"vinstall",cmd_vinstall},
-    {"vpkg",cmd_vpkg},{"neovim-vnl",cmd_neovim_vnl},{"htop-gui",cmd_htop_gui},
-    {"doom-generic",cmd_doom_generic},{"desktop",cmd_desktop},{"vbrowser",NULL},{"ping",cmd_ping},{"netcfg",cmd_netcfg},{"vsnake",cmd_vsnake},{NULL,NULL}
+    {"vpkg",cmd_vpkg},{"neovim",cmd_neovim_vnl},{"htop",cmd_htop_gui},
+    {"doom",cmd_doom_generic},{"desktop",cmd_desktop},{"vbrowser",NULL},{"ping",cmd_ping},{"netcfg",cmd_netcfg},{"vsnake",cmd_vsnake},{NULL,NULL}
 };
 
 static bool is_elf_file(const char *path) {
@@ -589,7 +589,7 @@ static bool is_elf_file(const char *path) {
     return (n == 4 && magic[0] == 0x7f && magic[1] == 'E' && magic[2] == 'L' && magic[3] == 'F');
 }
 
-/* ---- Public: called by sh.c to dispatch built-in commands -------- */
+/* wtf is this calling from sh again? who knows. */
 int shell_exec_builtin(int argc, char **argv) {
     if (argc == 0) return 0;
     for (const Command *c = cmds; c->name; c++) {
@@ -598,7 +598,7 @@ int shell_exec_builtin(int argc, char **argv) {
             return sh_last_status;
         }
     }
-    /* Check if package executable file exists in /usr/bin or directly */
+    /* check if this shit exists anywhere in this mess */
     char tpath[128];
     if (argv[0][0] == '/') {
         strncpy(tpath, argv[0], sizeof(tpath)-1);
@@ -657,7 +657,7 @@ void shell_run(void) {
         vga_set_color(VGA_LGREEN, VGA_BLACK);
         kprintf("vnl@vnl");
         vga_set_color(VGA_WHITE, VGA_BLACK);
-        kprintf("]$ ");
+        kprintf("]$ "); /* prompt junk */
         if (readline(line, CMD_MAX) == 0) continue;
         push_history(line);
         shell_exec_line(line);

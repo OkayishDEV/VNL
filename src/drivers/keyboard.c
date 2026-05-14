@@ -77,10 +77,7 @@ static void kbd_handle_byte(uint8_t sc)
     }
 
     if (!released && sc < 128) {
-        /*
-         * Caps Lock must only toggle A–Z. XOR with shift on the whole table
-         * breaks the number row: '1' becomes '!' while caps is on.
-         */
+        /* caps lock logic... what a headache */
         char c;
         if (shift_held)
             c = sc_upper[sc];
@@ -97,8 +94,7 @@ static void keyboard_irq(Registers *r)
 {
     (void)r;
 
-    /* PS/2 shares 0x60 with the aux (mouse). Status bit 5 = aux data.
-     * Decoding mouse bytes as scancodes fills the buffer with junk. */
+    /* ps2 and mouse sharing shit... buffer junk incoming */
     for (int n = 0; n < 32; n++) {
         uint8_t st = inb(KBD_STATUS);
         if (!(st & 0x01))

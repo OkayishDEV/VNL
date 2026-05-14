@@ -12,32 +12,13 @@ extern char boot_stack_top[];
 
 uint64_t sched_pending_cr3;
 
-/* ---- Task table -------------------------------------------------- */
+/* some shitty table for tasks */
 static Task   tasks[MAX_TASKS];
 static int    num_tasks    = 0;
 static int    current_idx  = 0;
 static uint32_t next_pid   = 1;
 
-/* ---- Fake interrupt frame layout (26 × 8 bytes) ------------------
- * This is what PUSH_REGS + stub int_no/err_code + CPU hardware frame
- * leave on the stack. Must match sched.asm PUSH_REGS and isr_stubs.asm.
- *
- * Stack grows down. After PUSH_REGS the stack pointer points at:
- *   [rsp+0*8]  gs          (pushed last by PUSH_REGS)
- *   [rsp+1*8]  fs
- *   [rsp+2*8]  es
- *   [rsp+3*8]  ds
- *   [rsp+4*8]  r15
- *   ...
- *   [rsp+18*8] rax         (pushed first by PUSH_REGS)
- *   [rsp+19*8] int_no      (pushed by stub before PUSH_REGS)
- *   [rsp+20*8] err_code
- *   [rsp+21*8] rip         (CPU hardware)
- *   [rsp+22*8] cs
- *   [rsp+23*8] rflags
- *   [rsp+24*8] rsp
- *   [rsp+25*8] ss
- */
+/* wtf is this frame? 26 words of pure pain. */
 #define FRAME_WORDS 26
 
 static uint64_t *build_fake_frame(uint8_t *stack_top, void (*entry)(void))
@@ -82,7 +63,7 @@ static uint64_t *build_user_frame(uint8_t *stack_top, uint64_t rip, uint64_t rsp
     return frame;
 }
 
-/* ---- Round-robin picker ------------------------------------------ */
+/* pick someone else or just die */
 static uint64_t do_switch(uint64_t cur_rsp)
 {
     /* Save current task's RSP */
@@ -117,7 +98,7 @@ static uint64_t do_switch(uint64_t cur_rsp)
     return tasks[next].rsp;
 }
 
-/* ---- Scheduler C handlers (called from sched.asm) ---------------- */
+/* handlers... who handles the handlers? */
 uint64_t sched_timer_c(Registers *r)
 {
     tick_count++;
@@ -134,11 +115,11 @@ uint64_t sched_timer_c(Registers *r)
 
 uint64_t sched_yield_c(Registers *r)
 {
-    /* Software interrupt — no EOI needed */
+    /* soft int... no eoi needed. who cares. */
     return do_switch((uint64_t)r);
 }
 
-/* ---- Public API -------------------------------------------------- */
+/* the only things that work */
 void sched_init(void)
 {
     memset(tasks, 0, sizeof(tasks));

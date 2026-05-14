@@ -1,21 +1,6 @@
 /*
- * VNL — Vibe Not Linux
- * kernel_main: called from boot.asm after entering 64-bit mode
- *
- * Order:
- *   1. VGA + serial (early output)
- *   2. GDT (proper segments + TSS)
- *   3. IDT (exception/interrupt vectors)
- *   4. IRQ (PIC remapping)
- *   5. PMM (physical memory manager)
- *   6. Linear framebuffer (so VNC / GOP shows the same text as VGA)
- *   7. VMM (virtual memory manager)
- *   8. Heap (kernel malloc)
- *   9. Timer (PIT, 1000 Hz)
- *  10. Keyboard
- *  11. Syscall (INT 0x80)
- *  12. STI (enable interrupts)
- *  13. Kernel shell
+ * wtf is this vibe? not linux apparently.
+ * just boot the damn thing.
  */
 #include "types.h"
 #include "vga.h"
@@ -46,7 +31,7 @@ extern uint8_t kernel_end[];
 void shell_run(void);
 void irq_init(void);
 
-/* ---- Multiboot2 memory info parsing (minimal) -------------------- */
+/* multiboot2 garbage parsing */
 #define MB2_MAGIC_VAL 0x36D76289   /* bootloader → kernel magic value */
 #define MB2_TAG_END   0
 #define MB2_TAG_MEM   4    /* Basic memory information */
@@ -114,7 +99,7 @@ static uint64_t parse_mb2_memory(uint64_t mb_info_phys)
     return 128 * 1024;
 }
 
-/* ---- Boot banner ------------------------------------------------- */
+/* shitty logo */
 static void print_banner(void)
 {
     vga_set_color(VGA_LGREEN, VGA_BLACK);
@@ -133,7 +118,7 @@ static void print_banner(void)
     vga_set_color(VGA_LGREEN, VGA_BLACK);
 }
 
-/* ---- Entry point ------------------------------------------------- */
+/* point of no return */
 void kernel_main(uint32_t magic, uint64_t mb_info)
 {
     /* Step 1: Early output */
@@ -163,10 +148,7 @@ void kernel_main(uint32_t magic, uint64_t mb_info)
     pmm_init(mem_kb);
     if (mb_info) parse_mb2_mmap(mb_info);
 
-    /* Reserve physical frames used by the kernel image itself.
-     * kernel_end is the high-VMA address; its physical address is
-     * kernel_end - KERNEL_VMA.  Reserve from 1 MiB (0x100000) through
-     * physical kernel_end so the VMM can't reclaim these frames. */
+    /* hide from vmm so it doesn't break everything */
     uint64_t kern_phys_end = (uint64_t)kernel_end - 0xFFFFFFFF80000000ULL;
     pmm_reserve(0x100000, kern_phys_end - 0x100000);
 
@@ -190,7 +172,7 @@ void kernel_main(uint32_t magic, uint64_t mb_info)
 
     /* Step 7: Kernel heap */
     kprintf("[INIT] Heap...\n");
-    /* Place heap at 0xFFFF_C000_0000_0000 (arbitrary safe high address) */
+    /* heap somewhere up there who cares */
     heap_init(0xFFFFC00000000000ULL, 4 * PAGE_SIZE);
 
     /* Step 8: Timer */
@@ -211,6 +193,20 @@ void kernel_main(uint32_t magic, uint64_t mb_info)
 
     kprintf("[INIT] devfs (/dev/fb0, /dev/null)...\n");
     devfs_init();
+
+    /* Unpack Real Doom */
+    extern uint8_t doom_bin_start[], doom_bin_end[];
+    extern uint8_t wad_start[], wad_end[];
+    int fd_d = vfs_open("/bin/doom", VFS_O_CREATE | VFS_O_WRITE);
+    if (fd_d >= 0) {
+        vfs_write(fd_d, doom_bin_start, doom_bin_end - doom_bin_start);
+        vfs_close(fd_d);
+    }
+    int fd_w = vfs_open("/doom1.wad", VFS_O_CREATE | VFS_O_WRITE);
+    if (fd_w >= 0) {
+        vfs_write(fd_w, wad_start, wad_end - wad_start);
+        vfs_close(fd_w);
+    }
 
     kprintf("[INIT] AF_UNIX sockets + GUI environment layout...\n");
     unix_socket_init();

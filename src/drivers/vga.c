@@ -7,16 +7,16 @@
 #define VGA_HEIGHT  25
 #define VGA_MEM     ((uint16_t *)0xFFFFFFFF800B8000ULL)
 
-/* VGA CRTC registers */
+/* vga crtc registers... prehistoric stuff */
 #define VGA_CTRL 0x3D4
 #define VGA_DATA 0x3D5
 
 static int cur_row, cur_col;
 static uint8_t cur_color;
-static VGAPutcharHook s_putchar_hook = NULL;
+static VGAHook s_vga_hook = NULL;
 
-void vga_set_putchar_hook(VGAPutcharHook hook) {
-    s_putchar_hook = hook;
+void vga_set_hook(VGAHook hook) {
+    s_vga_hook = hook;
 }
 
 static inline uint16_t make_entry(char c, uint8_t color)
@@ -50,6 +50,7 @@ void vga_set_cursor(int row, int col)
     cur_col = col;
     update_hw_cursor();
     fb_console_mirror_cursor(row, col);
+    if (s_vga_hook) s_vga_hook(VGA_EVENT_CURSOR, col, row, 0, cur_color);
 }
 
 void vga_get_cursor(int *row, int *col)
@@ -68,6 +69,7 @@ void vga_clear(void)
     cur_row = cur_col = 0;
     update_hw_cursor();
     fb_console_reset();
+    if (s_vga_hook) s_vga_hook(VGA_EVENT_CLEAR, 0, 0, 0, cur_color);
 }
 
 static void scroll(void)
@@ -82,11 +84,11 @@ static void scroll(void)
 
 void vga_putchar(char c)
 {
-    if (s_putchar_hook) s_putchar_hook(c, cur_color);
+    if (s_vga_hook) s_vga_hook(VGA_EVENT_PUTCHAR, cur_col, cur_row, c, cur_color);
     if (c == '\n') {
         cur_col = 0;
         cur_row++;
-    } else if (c == '\r') {
+    } else if (c == '\r') { /* carriage return... why are we still in 1970? */
         cur_col = 0;
     } else if (c == '\t') {
         cur_col = (cur_col + 8) & ~7;
@@ -120,10 +122,10 @@ void vga_init(void)
 
 void vga_export_fb_mirror_once(void)
 {
-    /* No-op: legacy physical VRAM at 0xB8000 contains uninitialized BIOS garbage in linear FB mode */
 }
 
 void vga_fb_mirror_refresh(void)
 {
-    /* No-op to prevent continuous redundant full-screen redraws in shell loops */
 }
+
+

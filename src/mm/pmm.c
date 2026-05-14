@@ -1,7 +1,6 @@
 /*
- * VNL Physical Memory Manager
- * Simple bitmap allocator. Each bit = one 4 KiB frame.
- * Frame 0 and low frames (< 1 MiB) are always marked used.
+ * physical memory manager... a giant bitmap. 
+ * each bit is a frame. hope you have enough ram.
  */
 #include "pmm.h"
 #include "string.h"
@@ -10,13 +9,13 @@
 #define MAX_FRAMES (1024 * 1024)     /* 4 GiB worth of 4KiB frames */
 #define BITMAP_SIZE (MAX_FRAMES / 8) /* bytes */
 
-/* Placed in BSS — zeroed at startup. 0 = free, 1 = used */
+/* zeroed garbage... 0 is free 1 is used. try not to mess it up. */
 static uint8_t bitmap[BITMAP_SIZE] ALIGN(8);
 
 static uint64_t total_frames = 0;
 static uint64_t free_frames  = 0;
 
-/* ---- Bitmap helpers ---------------------------------------------- */
+/* bitmap helpers... more functions i have to write */
 static inline void bm_set(uint64_t frame)
 {
     bitmap[frame / 8] |= (uint8_t)(1u << (frame % 8));
@@ -32,12 +31,9 @@ static inline bool bm_test(uint64_t frame)
     return (bitmap[frame / 8] & (uint8_t)(1u << (frame % 8))) != 0;
 }
 
-/* ---- Public API -------------------------------------------------- */
+/* things other files call */
 
-/*
- * pmm_init — called early with the total memory (in KiB) from Multiboot2.
- * Marks all frames used first, then frees usable RAM above 1 MiB.
- */
+    /* mark everything used then free the usable shit */
 void pmm_init(uint64_t mem_upper_kb)
 {
     total_frames = (mem_upper_kb * 1024) / PAGE_SIZE;
@@ -47,7 +43,7 @@ void pmm_init(uint64_t mem_upper_kb)
     memset(bitmap, 0xFF, BITMAP_SIZE);
     free_frames = 0;
 
-    /* Free frames from 1 MiB upward (reserved: 0x0–0xFFFFF) */
+    /* free from 1mb up... 0-1mb is a minefield */
     uint64_t first_free = ALIGN_UP(0x100000, PAGE_SIZE) / PAGE_SIZE;
     for (uint64_t f = first_free; f < total_frames; f++) {
         bm_clear(f);
@@ -55,11 +51,7 @@ void pmm_init(uint64_t mem_upper_kb)
     }
 }
 
-/*
- * pmm_reserve — mark a physical range [base, base+len) as used.
- * Called after pmm_init to protect the kernel image and other
- * reserved regions from being handed out by pmm_alloc.
- */
+    /* don't touch the kernel memory */
 void pmm_reserve(uint64_t base, uint64_t len)
 {
     uint64_t first = ALIGN_DOWN(base, PAGE_SIZE) / PAGE_SIZE;
@@ -72,15 +64,12 @@ void pmm_reserve(uint64_t base, uint64_t len)
     }
 }
 
-/*
- * pmm_alloc — returns a zeroed 4 KiB physical frame address,
- * or NULL if OOM. Physical address is below KERNEL_VMA.
- */
+    /* give me a frame... or return null and crash */
 void *pmm_alloc(void)
 {
     /* Scan bitmap for a free frame */
     for (uint64_t i = 0; i < BITMAP_SIZE; i++) {
-        if (bitmap[i] == 0xFF) continue;   /* all used in this byte */
+        if (bitmap[i] == 0xFF) continue;   /* byte is full... move on */
         for (int bit = 0; bit < 8; bit++) {
             if (!(bitmap[i] & (1u << bit))) {
                 uint64_t frame = i * 8 + (uint64_t)bit;

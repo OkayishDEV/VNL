@@ -4,6 +4,7 @@
 
 void gui_environment_init(void)
 {
+    /* setup some directories because apps are picky as fuck */
     if (vfs_resolve("/tmp") < 0) vfs_mkdir("/tmp");
     if (vfs_resolve("/var") < 0) vfs_mkdir("/var");
     if (vfs_resolve("/var/log") < 0) vfs_mkdir("/var/log");

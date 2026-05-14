@@ -6,14 +6,14 @@
 #include "cpu.h"
 #include "errno.h"
 
-/* ---- Node store -------------------------------------------------- */
+/* where the fuck do we store these nodes? */
 static VFSNode nodes[VFS_MAX_NODES];
-static uint32_t next_inode = 1;   /* 0 = root */
+static uint32_t next_inode = 1;   /* zero is root i guess who cares */
 
 uint32_t vfs_cwd = VFS_INODE_ROOT;
 void vfs_set_cwd(uint32_t inode) { vfs_cwd = inode; }
 
-/* ---- File descriptor table --------------------------------------- */
+/* fd table... another mess */
 typedef struct {
     bool     open;
     uint32_t inode;
@@ -22,9 +22,9 @@ typedef struct {
 } FDEntry;
 
 static FDEntry fds[VFS_MAX_FDS];
-/* fd 0 = stdin (keyboard), fd 1 = stdout (VGA), fd 2 = stderr — handled by syscall layer */
+/* standard fds... syscall layer handles this crap */
 
-/* ---- Node helpers ------------------------------------------------ */
+/* node helpers... wtf is a helper? */
 static VFSNode *node_get(uint32_t inode)
 {
     for (int i = 0; i < VFS_MAX_NODES; i++)
@@ -42,9 +42,7 @@ static VFSNode *node_alloc(void)
     return NULL;
 }
 
-/* ---- Path resolver ----------------------------------------------- */
-/* Splits path into components and walks the node tree.
-   Returns inode on success, -1 on failure. */
+/* walk the tree... or just get lost */
 int vfs_resolve(const char *path)
 {
     if (!path || !*path) return (int)vfs_cwd;
@@ -84,7 +82,7 @@ int vfs_resolve(const char *path)
     return (int)cur;
 }
 
-/* Resolve parent dir and return leaf name */
+/* find the parent... like looking for a needle in a haystack */
 static int resolve_parent(const char *path, char *leaf_out)
 {
     /* Find last '/' */
@@ -98,7 +96,7 @@ static int resolve_parent(const char *path, char *leaf_out)
         return (int)vfs_cwd;
     }
 
-    /* Everything before slash is parent path */
+    /* everything before slash is parent... duh */
     char parent_path[256];
     size_t plen = (size_t)(slash - path);
     if (plen == 0) {
@@ -113,7 +111,7 @@ static int resolve_parent(const char *path, char *leaf_out)
     return vfs_resolve(parent_path);
 }
 
-/* ---- Public API -------------------------------------------------- */
+/* public api... for everyone to break */
 
 void vfs_init(void)
 {
@@ -121,7 +119,7 @@ void vfs_init(void)
     memset(fds,   0, sizeof(fds));
     next_inode = 1;
 
-    /* Root directory */
+    /* root... the start of all problems */
     nodes[0].used   = true;
     nodes[0].type   = VFS_DIR;
     nodes[0].inode  = VFS_INODE_ROOT;
@@ -129,7 +127,7 @@ void vfs_init(void)
     nodes[0].name[0] = '/';
     nodes[0].name[1] = '\0';
 
-    /* Create some starter directories */
+    /* starter dirs... hope they're enough */
     vfs_mkdir("/bin");
     vfs_mkdir("/etc");
     vfs_mkdir("/tmp");
