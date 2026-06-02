@@ -245,6 +245,8 @@ iso/boot/grub/grub.cfg   GRUB2 config
 
 ## License
 
-Do whatever you want with it. It's a vibe.
-# VNL
-# Computer-Melter
+VNL Kernel is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later).
+
+This means you are free to use, modify, and distribute this software under the terms of the GPL, provided that any distributed modifications are also released under the same license.
+
+See the [LICENSE](LICENSE) file for the full license text.
