@@ -5,7 +5,7 @@ A 64-bit x86_64 Unix-like hobby kernel written from scratch in C and NASM assemb
 ---
 
 ## Note
-I will be working less on vnl for i am starting a different kernel project written in rust. This project will still be active, feel free to contribute!
+I will be working less on vnl for i am starting a different kernel project written in zig. This project will still be active, feel free to contribute!
 
 ## Features
 
