@@ -5,7 +5,7 @@
 .global _start
 _start:
     subq $512, %rsp
-    movq $3, %rax
+    movq $2, %rax
     leaq devpath(%rip), %rdi
     movq $3, %rsi
     int $0x80

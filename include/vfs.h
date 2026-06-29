@@ -32,10 +32,16 @@ void   vfs_init(void);
 
 /* File descriptor operations */
 int    vfs_open(const char *path, int flags);
+int    vfs_open_std(const char *path, int flags, int target_fd);
 int    vfs_close(int fd);
+int    vfs_dup(int oldfd);
+int    vfs_dup2(int oldfd, int newfd);
+int    vfs_ftruncate(int fd, int64_t length);
 int    vfs_read(int fd, void *buf, size_t len);
 int    vfs_write(int fd, const void *buf, size_t len);
 int    vfs_ioctl(int fd, uint64_t request, void *arg);
+int    vfs_fcntl(int fd, int cmd, int64_t arg);
+int64_t vfs_lseek(int fd, int64_t offset, int whence);
 
 VFSNode *vfs_node_from_fd(int fd);
 int      vfs_mknod_chr(const char *path, uint16_t major, uint16_t minor);
@@ -44,6 +50,7 @@ int      vfs_mknod_chr(const char *path, uint16_t major, uint16_t minor);
 int    vfs_mkdir(const char *path);
 int    vfs_unlink(const char *path);
 int    vfs_readdir(const char *path, char (*names)[VFS_NAME_MAX], int max);
+int    vfs_getdents64(int fd, void *dirp, size_t count);
 
 /* Stat / path utilities */
 int    vfs_stat(const char *path, VFSNodeType *type, size_t *size);

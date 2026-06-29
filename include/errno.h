@@ -17,3 +17,9 @@
 #define ECONNREFUSED    111
 #define ENOEXEC         8
 #define E2BIG           7
+#define EMFILE         24
+#define EFBIG          27
+#define ENOTSOCK       88
+#define ENOTDIR        20
+#define ERANGE         34
+#define EEXIST         17

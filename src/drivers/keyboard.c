@@ -27,6 +27,8 @@ static const char sc_upper[128] = {
 #define KBD_BUF_SIZE 256
 static volatile uint8_t  kbd_buf[KBD_BUF_SIZE];
 static volatile uint32_t kbd_head = 0, kbd_tail = 0;
+static volatile uint8_t  kbd_raw_buf[KBD_BUF_SIZE];
+static volatile uint32_t kbd_raw_head = 0, kbd_raw_tail = 0;
 static volatile bool     shift_held = false;
 static volatile bool     caps_lock  = false;
 static volatile bool     e0_pending = false;
@@ -35,6 +37,12 @@ static void kbd_push(uint8_t c)
 {
     uint32_t next = (kbd_head + 1) % KBD_BUF_SIZE;
     if (next != kbd_tail) { kbd_buf[kbd_head] = c; kbd_head = next; }
+}
+
+static void kbd_push_raw(uint8_t sc)
+{
+    uint32_t next = (kbd_raw_head + 1) % KBD_BUF_SIZE;
+    if (next != kbd_raw_tail) { kbd_raw_buf[kbd_raw_head] = sc; kbd_raw_head = next; }
 }
 
 static void kbd_handle_byte(uint8_t sc)
@@ -102,6 +110,7 @@ static void keyboard_irq(Registers *r)
         uint8_t data = inb(KBD_DATA);
         if (st & 0x20)
             continue;
+        kbd_push_raw(data);
         kbd_handle_byte(data);
     }
 
@@ -116,6 +125,14 @@ int keyboard_poll(void)
     uint8_t c = kbd_buf[kbd_tail];
     kbd_tail = (kbd_tail + 1) % KBD_BUF_SIZE;
     return (int)c;
+}
+
+int keyboard_poll_raw(void)
+{
+    if (kbd_raw_head == kbd_raw_tail) return -1;
+    uint8_t sc = kbd_raw_buf[kbd_raw_tail];
+    kbd_raw_tail = (kbd_raw_tail + 1) % KBD_BUF_SIZE;
+    return (int)sc;
 }
 
 int keyboard_getkey(void)

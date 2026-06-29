@@ -1,11 +1,11 @@
 # Use native gcc (x86_64-pc-linux-gnu) with freestanding flags.
 # x86_64-elf-gcc is preferred if installed; fall back to system gcc.
-CC         := $(shell command -v x86_64-elf-gcc 2>/dev/null || echo gcc)
+CC         := clang -target x86_64-elf
 AS         := nasm
-LD         := $(shell command -v x86_64-elf-ld 2>/dev/null || echo ld)
+LD         := ld.lld
 
 CFLAGS     := -std=gnu11 -ffreestanding -O2 -Wall -Wextra \
-              -mno-red-zone -mno-mmx -mno-sse -mno-sse2 \
+              -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -msoft-float \
               -mcmodel=kernel -Iinclude \
               -fno-stack-protector -fno-builtin -fno-pic
 ASFLAGS    := -f elf64
@@ -14,8 +14,8 @@ LDFLAGS    := -T linker.ld -nostdlib -z max-page-size=0x1000
 SRCDIR     := src
 BUILDDIR   := build
 
-ASM_SRCS   := $(shell find $(SRCDIR) -name '*.asm')
-C_SRCS     := $(shell find $(SRCDIR) -name '*.c')
+ASM_SRCS   := $(filter-out $(SRCDIR)/boot/bootloader.asm,$(wildcard $(SRCDIR)/*/*.asm))
+C_SRCS     := $(wildcard $(SRCDIR)/*/*.c)
 
 ASM_OBJS   := $(patsubst $(SRCDIR)/%.asm,$(BUILDDIR)/%.asm.o,$(ASM_SRCS))
 C_OBJS     := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.c.o,$(C_SRCS))
@@ -23,13 +23,28 @@ C_OBJS     := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.c.o,$(C_SRCS))
 KERNEL     := $(BUILDDIR)/vnl.kernel
 ISO        := vnl.iso
 
-.PHONY: all clean iso run
+.PHONY: all clean run
 
 all: $(KERNEL)
 
-$(BUILDDIR)/vnl-x.elf: userspace/vnl-x.S userspace/vnl-x.ld
+USER_CFLAGS := -std=gnu11 -O2 -ffreestanding -Iports/sysroot/usr/include -Iuserspace/include -Wall -Wextra -fno-stack-protector -fno-builtin -fno-pic
+
+$(BUILDDIR)/tinywl.o: userspace/tinywl.c
 	@mkdir -p $(dir $@)
-	$(CC) -m64 -nostdlib -static -O2 -fno-stack-protector -T userspace/vnl-x.ld -o $@ userspace/vnl-x.S
+	$(CC) $(USER_CFLAGS) -c -o $@ $<
+
+$(BUILDDIR)/backend.o: userspace/backend/vnl/backend.c
+	@mkdir -p $(dir $@)
+	$(CC) $(USER_CFLAGS) -c -o $@ $<
+
+$(BUILDDIR)/vnl-x.elf: $(BUILDDIR)/tinywl.o $(BUILDDIR)/backend.o userspace/vnl-x.ld
+	@mkdir -p $(dir $@)
+	$(LD) -T userspace/vnl-x.ld -o $@ $(BUILDDIR)/tinywl.o $(BUILDDIR)/backend.o \
+		ports/sysroot/usr/lib/libwayland-server.a \
+		ports/sysroot/usr/lib/libpixman-1.a \
+		ports/sysroot/usr/lib/libffi.a \
+		ports/sysroot/usr/lib/libxkbcommon.a \
+		ports/sysroot/usr/lib/libc.a
 
 $(BUILDDIR)/kernel/vnl_elf_blob.asm.o: $(BUILDDIR)/vnl-x.elf
 
@@ -48,17 +63,15 @@ $(BUILDDIR)/%.c.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 	@echo "[CC]  $<"
 
-iso: $(KERNEL)
-	cp $(KERNEL) iso/boot/vnl.kernel
-	grub-mkrescue -o $(ISO) iso
-	@echo "[ISO] $(ISO)"
-	@echo "[ISO] Legacy USB: dd if=$(ISO) of=/dev/sdX bs=4M conv=fsync  (whole sdX, not sdX1). Try CSM USB-HDD vs USB-ZIP."
+$(BUILDDIR)/bootloader.bin: src/boot/bootloader.asm
+	@mkdir -p $(BUILDDIR)
+	$(AS) -f bin src/boot/bootloader.asm -o $@
 
-run: iso
-	qemu-system-x86_64 -cdrom $(ISO) -m 256M -serial stdio -no-reboot -no-shutdown -net nic,model=rtl8139 -net user
+vnl.img: $(BUILDDIR)/bootloader.bin $(KERNEL)
+	python -c "import sys; data = open(sys.argv[1], 'rb').read() + open(sys.argv[2], 'rb').read(); open(sys.argv[3], 'wb').write(data + b'\x00' * (10*1024*1024 - len(data)))" $(BUILDDIR)/bootloader.bin $(KERNEL) $@
 
-run-kernel: $(KERNEL)
-	qemu-system-x86_64 -kernel $(KERNEL) -m 256M -serial stdio -no-reboot -no-shutdown
+run: vnl.img
+	qemu-system-x86_64 -drive file=vnl.img,format=raw -m 256M -serial stdio -no-reboot -no-shutdown -net nic,model=rtl8139 -net user
 
 clean:
-	rm -rf $(BUILDDIR) $(ISO)
+	rm -rf $(BUILDDIR) $(ISO) vnl.img

@@ -5,6 +5,7 @@
 #include "vfs.h"
 #include "string.h"
 #include "errno.h"
+#include "sched.h"
 
 #define RX_CAP 8192
 #define ACCEPT_Q 8
@@ -26,6 +27,9 @@ typedef struct {
     int     peer_idx;
     int listen_q[ACCEPT_Q];
     int n_wait;
+    int     fds_rx[16];
+    size_t  fds_rhd, fds_rtl;
+    int     flags;
 } USock;
 
 #define PEER_NONE (-1)
@@ -52,6 +56,7 @@ static int alloc_slot(void)
             socks[i].peer_idx  = PEER_NONE;
             socks[i].rhd = socks[i].rtl = 0;
             socks[i].n_wait    = 0;
+            socks[i].fds_rhd = socks[i].fds_rtl = 0;
             return i;
         }
     }
@@ -73,6 +78,12 @@ static int push_rx(USock *dst, const void *data, size_t len)
 
 static int pop_rx(USock *s, void *buf, size_t len)
 {
+    while (s->rtl == s->rhd && s->peer_idx != PEER_NONE) {
+        if (s->flags & 2048) { // O_NONBLOCK = 2048
+            return -EAGAIN;
+        }
+        task_sleep(1);
+    }
     uint8_t *out = (uint8_t *)buf;
     size_t n = 0;
     while (n < len && s->rtl != s->rhd) {
@@ -199,8 +210,12 @@ int unix_accept(int fd, void *addr, size_t *addrlen)
     USock *L = &socks[i];
     if (L->state != SK_LISTENING)
         return -EINVAL;
-    if (L->n_wait == 0)
-        return -EAGAIN;
+    while (L->n_wait == 0) {
+        if (L->flags & 2048) { // O_NONBLOCK = 2048
+            return -EAGAIN;
+        }
+        task_sleep(1);
+    }
     int si = L->listen_q[0];
     memmove(L->listen_q, L->listen_q + 1, (size_t)(L->n_wait - 1) * sizeof(int));
     L->n_wait--;
@@ -288,7 +303,173 @@ int unix_sock_close(int fd)
     s->peer_idx = PEER_NONE;
     if ((s->state == SK_BOUND || s->state == SK_LISTENING) && s->path[0])
         vfs_unlink(s->path);
+    
+    while (s->fds_rtl != s->fds_rhd) {
+        int fd_to_close = s->fds_rx[s->fds_rtl];
+        if (fd_to_close >= 0 && !unix_is_sockfd(fd_to_close)) {
+            vfs_close(fd_to_close);
+        }
+        s->fds_rtl = (s->fds_rtl + 1) % 16;
+    }
+    
     s->used = false;
     memset(s, 0, sizeof(*s));
     return 0;
+}
+
+int unix_sock_sendmsg(int fd, const struct msghdr *msg, int flags)
+{
+    (void)flags;
+    int i = idx_from_fd(fd);
+    if (i < 0 || !socks[i].used) return -EBADF;
+    USock *s = &socks[i];
+    if (s->state != SK_CONNECTED || s->peer_idx == PEER_NONE) return -ENOTCONN;
+    USock *peer = &socks[s->peer_idx];
+
+    if (!msg) return -EFAULT;
+
+    int total_sent = 0;
+    for (size_t k = 0; k < msg->msg_iovlen; k++) {
+        struct iovec iov = msg->msg_iov[k];
+        if (iov.iov_len == 0) continue;
+        if (!iov.iov_base) return -EFAULT;
+        int sent = push_rx(peer, iov.iov_base, iov.iov_len);
+        if (sent < 0) return sent;
+        total_sent += sent;
+    }
+
+    if (msg->msg_control && msg->msg_controllen >= sizeof(struct cmsghdr)) {
+        size_t offset = 0;
+        while (offset + sizeof(struct cmsghdr) <= msg->msg_controllen) {
+            struct cmsghdr *cmsg = (struct cmsghdr *)((char *)msg->msg_control + offset);
+            if (cmsg->cmsg_len < sizeof(struct cmsghdr) || offset + cmsg->cmsg_len > msg->msg_controllen)
+                break;
+            if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+                int *fds_buf = (int *)((char *)cmsg + sizeof(struct cmsghdr));
+                size_t num_fds = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
+                for (size_t f = 0; f < num_fds; f++) {
+                    int send_fd = fds_buf[f];
+                    int recv_fd = -1;
+                    if (unix_is_sockfd(send_fd)) {
+                        recv_fd = send_fd;
+                    } else {
+                        recv_fd = vfs_dup(send_fd);
+                        if (recv_fd < 0) return recv_fd;
+                    }
+
+                    size_t next = (peer->fds_rhd + 1) % 16;
+                    if (next == peer->fds_rtl) {
+                        if (!unix_is_sockfd(recv_fd)) vfs_close(recv_fd);
+                        return -ENOMEM;
+                    }
+                    peer->fds_rx[peer->fds_rhd] = recv_fd;
+                    peer->fds_rhd = next;
+                }
+            }
+            offset += ALIGN_UP(cmsg->cmsg_len, 8);
+        }
+    }
+
+    return total_sent;
+}
+
+int unix_sock_recvmsg(int fd, struct msghdr *msg, int flags)
+{
+    (void)flags;
+    int i = idx_from_fd(fd);
+    if (i < 0 || !socks[i].used) return -EBADF;
+    USock *s = &socks[i];
+    if (s->state != SK_CONNECTED) return -ENOTCONN;
+
+    if (!msg) return -EFAULT;
+
+    int total_recvd = 0;
+    for (size_t k = 0; k < msg->msg_iovlen; k++) {
+        struct iovec iov = msg->msg_iov[k];
+        if (iov.iov_len == 0) continue;
+        if (!iov.iov_base) return -EFAULT;
+        int recvd = pop_rx(s, iov.iov_base, iov.iov_len);
+        if (recvd < 0) return recvd;
+        total_recvd += recvd;
+        if (s->rtl == s->rhd) break;
+    }
+
+    if (msg->msg_control && msg->msg_controllen >= sizeof(struct cmsghdr)) {
+        struct cmsghdr *cmsg = (struct cmsghdr *)msg->msg_control;
+        size_t max_fds = (msg->msg_controllen - sizeof(struct cmsghdr)) / sizeof(int);
+        size_t popped_fds = 0;
+        int *out_fds = (int *)((char *)cmsg + sizeof(struct cmsghdr));
+
+        while (popped_fds < max_fds && s->fds_rtl != s->fds_rhd) {
+            out_fds[popped_fds++] = s->fds_rx[s->fds_rtl];
+            s->fds_rtl = (s->fds_rtl + 1) % 16;
+        }
+
+        if (popped_fds > 0) {
+            cmsg->cmsg_len = sizeof(struct cmsghdr) + popped_fds * sizeof(int);
+            cmsg->cmsg_level = SOL_SOCKET;
+            cmsg->cmsg_type = SCM_RIGHTS;
+            msg->msg_controllen = cmsg->cmsg_len;
+        } else {
+            msg->msg_controllen = 0;
+        }
+    } else {
+        msg->msg_controllen = 0;
+    }
+
+    return total_recvd;
+}
+
+int unix_sock_fcntl(int fd, int cmd, int64_t arg)
+{
+    int i = idx_from_fd(fd);
+    if (i < 0 || !socks[i].used) return -EBADF;
+    USock *s = &socks[i];
+    if (cmd == 3) { // F_GETFL
+        return s->flags;
+    } else if (cmd == 4) { // F_SETFL
+        s->flags = (int)arg;
+        return 0;
+    }
+    return -EINVAL;
+}
+
+int unix_eventfd(unsigned int initval, int flags)
+{
+    int i = alloc_slot();
+    if (i < 0) return -ENOMEM;
+    socks[i].state = SK_CONNECTED;
+    socks[i].peer_idx = i; // Connect to itself
+    socks[i].flags = flags;
+    if (initval > 0) {
+        uint64_t val = initval;
+        push_rx(&socks[i], &val, sizeof(val));
+    }
+    return UNIX_SOCK_FD_BASE + i;
+}
+
+int unix_sock_poll(int fd, int events)
+{
+    int i = idx_from_fd(fd);
+    if (i < 0 || !socks[i].used) return 0;
+    USock *s = &socks[i];
+    int revents = 0;
+    if (events & 0x001) { // POLLIN
+        if (s->rtl != s->rhd || s->peer_idx == PEER_NONE) {
+            revents |= 0x001;
+        }
+    }
+    if (events & 0x004) { // POLLOUT
+        if (s->peer_idx != PEER_NONE) {
+            int peer = s->peer_idx;
+            size_t free_space = (socks[peer].rtl + RX_CAP - 1 - socks[peer].rhd) % RX_CAP;
+            if (free_space > 0) {
+                revents |= 0x004;
+            }
+        }
+    }
+    if (s->peer_idx == PEER_NONE && s->state == SK_CONNECTED) {
+        revents |= 0x010; // POLLHUP
+    }
+    return revents;
 }

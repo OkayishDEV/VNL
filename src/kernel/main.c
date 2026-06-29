@@ -26,6 +26,7 @@
 #include "gui_env.h"
 #include "mouse.h"
 #include "rtl8139.h"
+#include "shm.h"
 
 extern uint8_t kernel_end[];
 void shell_run(void);
@@ -43,6 +44,36 @@ typedef struct PACKED {
     uint32_t mem_lower;   /* KiB below 1 MiB */
     uint32_t mem_upper;   /* KiB above 1 MiB */
 } MB2TagMem;
+
+typedef struct PACKED {
+    uint32_t type;
+    uint32_t size;
+    uint64_t addr;
+    uint32_t pitch;
+    uint32_t width;
+    uint32_t height;
+    uint8_t  bpp;
+    uint8_t  fb_type;
+    uint8_t  reserved;
+} MB2TagFB;
+
+uint64_t phys_framebuffer_addr = 0;
+uint32_t fb_width = 0;
+uint32_t fb_height = 0;
+uint32_t fb_pitch = 0;
+uint8_t fb_bpp = 0;
+
+uint32_t* video_memory = NULL;
+
+static void fill_screen(uint32_t color) {
+    if (!video_memory) return;
+    for (uint32_t y = 0; y < fb_height; y++) {
+        uint32_t *row = (uint32_t *)((uintptr_t)video_memory + y * fb_pitch);
+        for (uint32_t x = 0; x < fb_width; x++) {
+            row[x] = color;
+        }
+    }
+}
 
 static void parse_mb2_mmap(uint64_t mb_info_phys) {
     uint8_t *ptr = (uint8_t *)mb_info_phys;
@@ -119,15 +150,45 @@ static void print_banner(void)
 }
 
 /* point of no return */
-void kernel_main(uint32_t magic, uint64_t mb_info)
+void kernel_main(uint64_t mb_info)
 {
     /* Step 1: Early output */
     serial_init();
     vga_init();
 
-    /* Verify Multiboot2 */
-    if (magic != MB2_MAGIC_VAL) {
-        kprintf("[WARN] Not loaded by a Multiboot2 loader (magic=0x%x)\n", magic);
+    /* Parse the Framebuffer Tag */
+    extern uint32_t mb2_save_magic;
+    if (mb_info) {
+        if (mb2_save_magic == 0x2BADB002) {
+            Multiboot1Info *m1 = (Multiboot1Info *)mb_info;
+            if (m1 && (m1->flags & (1 << 12))) {
+                phys_framebuffer_addr = m1->framebuffer_addr;
+                fb_width = m1->framebuffer_width;
+                fb_height = m1->framebuffer_height;
+                fb_pitch = m1->framebuffer_pitch;
+                fb_bpp = m1->framebuffer_bpp;
+            }
+        } else {
+            uint8_t *ptr = (uint8_t *)mb_info;
+            uint32_t total_size = *(uint32_t *)ptr;
+            uint8_t *end = ptr + total_size;
+            ptr += 8;
+            while (ptr < end) {
+                MB2Tag *tag = (MB2Tag *)ptr;
+                if (tag->type == 0) {
+                    break;
+                }
+                if (tag->type == 8) {
+                    MB2TagFB *t = (MB2TagFB *)ptr;
+                    phys_framebuffer_addr = t->addr;
+                    fb_width = t->width;
+                    fb_height = t->height;
+                    fb_pitch = t->pitch;
+                    fb_bpp = t->bpp;
+                }
+                ptr = (uint8_t *)(((uintptr_t)ptr + tag->size + 7) & ~7);
+            }
+        }
     }
 
     /* Step 2: GDT */
@@ -144,9 +205,19 @@ void kernel_main(uint32_t magic, uint64_t mb_info)
 
     /* Step 5: Physical memory manager */
     kprintf("[INIT] PMM...\n");
-    uint64_t mem_kb = (mb_info) ? parse_mb2_memory(mb_info) : 128 * 1024;
+    uint64_t mem_kb = 128 * 1024;
+    if (mb_info) {
+        if (mb2_save_magic == 0x2BADB002) {
+            Multiboot1Info *m1 = (Multiboot1Info *)mb_info;
+            if (m1 && (m1->flags & 1)) {
+                mem_kb = m1->mem_lower + m1->mem_upper;
+            }
+        } else {
+            mem_kb = parse_mb2_memory(mb_info);
+        }
+    }
     pmm_init(mem_kb);
-    if (mb_info) parse_mb2_mmap(mb_info);
+    if (mb_info && mb2_save_magic != 0x2BADB002) parse_mb2_mmap(mb_info);
 
     /* hide from vmm so it doesn't break everything */
     uint64_t kern_phys_end = (uint64_t)kernel_end - 0xFFFFFFFF80000000ULL;
@@ -169,6 +240,25 @@ void kernel_main(uint32_t magic, uint64_t mb_info)
     /* Step 6: Virtual memory manager */
     kprintf("[INIT] VMM...\n");
     vmm_init();
+
+    if (phys_framebuffer_addr != 0 && fb_height > 0 && fb_pitch > 0) {
+        uint64_t fb_size = (uint64_t)fb_height * fb_pitch;
+        uint64_t phys_start = ALIGN_DOWN(phys_framebuffer_addr, PAGE_SIZE);
+        uint64_t phys_end = ALIGN_UP(phys_framebuffer_addr + fb_size, PAGE_SIZE);
+        uint64_t map_size = phys_end - phys_start;
+        uint64_t virt_start = 0xFFFFFFFFD0000000ULL;
+
+        for (uint64_t offset = 0; offset < map_size; offset += PAGE_SIZE) {
+            vmm_map(virt_start + offset, phys_start + offset, VMM_FLAG_WRITE);
+        }
+        video_memory = (uint32_t *)(virt_start + (phys_framebuffer_addr - phys_start));
+
+        extern uint8_t *s_fb_virt;
+        s_fb_virt = (uint8_t *)video_memory;
+
+        /* Test mapping: fill screen with blue (0x000000FF) */
+        fill_screen(0x000000FF);
+    }
 
     /* Step 7: Kernel heap */
     kprintf("[INIT] Heap...\n");
@@ -194,21 +284,15 @@ void kernel_main(uint32_t magic, uint64_t mb_info)
     kprintf("[INIT] devfs (/dev/fb0, /dev/null)...\n");
     devfs_init();
 
-    /* Unpack Real Doom */
-    extern uint8_t doom_bin_start[], doom_bin_end[];
-    extern uint8_t wad_start[], wad_end[];
-    int fd_d = vfs_open("/bin/doom", VFS_O_CREATE | VFS_O_WRITE);
-    if (fd_d >= 0) {
-        vfs_write(fd_d, doom_bin_start, doom_bin_end - doom_bin_start);
-        vfs_close(fd_d);
-    }
-    int fd_w = vfs_open("/doom1.wad", VFS_O_CREATE | VFS_O_WRITE);
-    if (fd_w >= 0) {
-        vfs_write(fd_w, wad_start, wad_end - wad_start);
-        vfs_close(fd_w);
-    }
+    /* Open standard streams for serial output */
+    vfs_open_std("/dev/ttyS0", VFS_O_READ, 0);
+    vfs_open_std("/dev/ttyS0", VFS_O_WRITE, 1);
+    vfs_open_std("/dev/ttyS0", VFS_O_WRITE, 2);
+
+
 
     kprintf("[INIT] AF_UNIX sockets + GUI environment layout...\n");
+    shm_init();
     unix_socket_init();
     gui_environment_init();
 

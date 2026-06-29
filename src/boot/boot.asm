@@ -24,6 +24,25 @@ PG_HUGE         equ (1 << 7)
 BOOT_STACK_SIZE equ 0x10000     ; 64 KiB
 
 ; ======================================================================
+; Multiboot1 header
+; ======================================================================
+section .multiboot progbits alloc noexec nowrite align=4
+align 4
+mboot1_start:
+    dd 0x1BADB002               ; Multiboot1 magic
+    dd 0x00010007               ; flags (align modules, memory info, request graphics, address fields)
+    dd -(0x1BADB002 + 0x00010007) ; checksum
+    dd mboot1_start             ; header_addr
+    dd mboot1_start             ; load_addr (start of section)
+    dd 0                        ; load_end_addr (0 = entire file)
+    dd 0                        ; bss_end_addr
+    dd _start                   ; entry_addr
+    dd 0                        ; mode_type
+    dd 1024                     ; width
+    dd 768                      ; height
+    dd 32                       ; depth
+
+; ======================================================================
 ; Multiboot2 header
 ; ======================================================================
 section .multiboot2 progbits alloc noexec nowrite align=8
@@ -32,17 +51,17 @@ mb2_start:
     dd 0                        ; arch: i386
     dd (mb2_end - mb2_start)    ; header length
     dd -(0xE85250D6 + 0 + (mb2_end - mb2_start))  ; checksum
-    ; Framebuffer tag (type 5): linear fb for VGA text mirror (e.g. VNC)
-    dw 5
-    dw 0
-    dd 24                       ; size incl. padding to 8 bytes
-    dd 1024                     ; width (hint)
+    align 8
+    dw 5                        ; type (MULTIBOOT_HEADER_TAG_FRAMEBUFFER)
+    dw 0                        ; flags
+    dd 20                       ; size
+    dd 1024                     ; width
     dd 768                      ; height
-    dd 32                       ; depth (32 bpp XRGB)
-    dd 0                        ; padding
-    dw 0                        ; end tag
-    dw 0
-    dd 8
+    dd 32                       ; depth
+    align 8
+    dw 0                        ; type 0 (terminating tag)
+    dw 0                        ; flags
+    dd 8                        ; size
 mb2_end:
 
 ; ======================================================================
@@ -169,10 +188,8 @@ long_mode_stub:
     ; Stack lives in .bss (high VMA).  Load its address absolutely.
     mov rsp, (boot_stack_top_phys + KERNEL_VMA)
 
-    ; Pass Multiboot2 data: edi = magic, esi = info ptr (zero-extended)
-    ; mb2_save_* are in .boot (still identity-mapped at their physical addr)
-    mov edi, dword [mb2_save_magic]
-    mov esi, dword [mb2_save_info]   ; zero-extended to rsi
+    ; Pass Multiboot2 data: rdi = info ptr (zero-extended)
+    mov edi, dword [mb2_save_info]
 
     ; kernel_main is in .text (high VMA).
     ; Distance boot→kernel_main >> 2 GiB → cannot use direct CALL (rel32).
@@ -202,6 +219,7 @@ gdt64_ptr:
     dq gdt64                    ; physical address (VMA == phys for .boot)
 
 ; Saved Multiboot2 values
+global mb2_save_magic
 mb2_save_magic: dd 0
 mb2_save_info:  dd 0
 

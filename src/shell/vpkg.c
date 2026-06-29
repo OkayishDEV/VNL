@@ -27,7 +27,6 @@ void cmd_vpkg(int argc, char **argv)
             "  \"packages\": [\n"
             "    {\"name\":\"neovim-vnl\",\"ver\":\"0.9.6\",\"desc\":\"Premium modal text editor compiled for bare-metal VNL ring3.\"},\n"
             "    {\"name\":\"htop-gui\",\"ver\":\"3.3.0\",\"desc\":\"Real-time process viewer and system resource monitor graphical applet.\"},\n"
-            "    {\"name\":\"doom-generic\",\"ver\":\"1.8.0\",\"desc\":\"Classic 1993 first-person shooter bare-metal linear framebuffer port.\"},\n"
             "    {\"name\":\"vsnake\",\"ver\":\"1.0.1\",\"desc\":\"Premium high-fidelity ASCII snake game for VNL Perfect Edition.\"}\n"
             "  ]\n"
             "}\n";
@@ -39,7 +38,7 @@ void cmd_vpkg(int argc, char **argv)
             vfs_write(fd, manifest_data, strlen(manifest_data));
             vfs_close(fd);
             vga_set_color(VGA_LGREEN, VGA_BLACK);
-            kprintf("SUCCESS: Upstream catalog synced. 4 verified packages loaded.\n");
+            kprintf("SUCCESS: Upstream catalog synced. 3 verified packages loaded.\n");
         } else {
             vga_set_color(VGA_LRED, VGA_BLACK);
             kprintf("ERROR: Failed to write upstream manifest cache to /var/cache/manifest.json\n");
@@ -58,7 +57,6 @@ void cmd_vpkg(int argc, char **argv)
         kprintf("Available Upstream VNL Packages:\n");
         vga_set_color(VGA_LCYAN, VGA_BLACK); kprintf("  neovim-vnl     "); vga_set_color(VGA_YELLOW, VGA_BLACK); kprintf("(v0.9.6) "); vga_set_color(VGA_WHITE, VGA_BLACK); kprintf("- Premium modal text editor compiled for bare-metal VNL ring3.\n");
         vga_set_color(VGA_LCYAN, VGA_BLACK); kprintf("  htop-gui       "); vga_set_color(VGA_YELLOW, VGA_BLACK); kprintf("(v3.3.0) "); vga_set_color(VGA_WHITE, VGA_BLACK); kprintf("- Real-time process viewer and system resource monitor graphical applet.\n");
-        vga_set_color(VGA_LCYAN, VGA_BLACK); kprintf("  doom-generic   "); vga_set_color(VGA_YELLOW, VGA_BLACK); kprintf("(v1.8.0) "); vga_set_color(VGA_WHITE, VGA_BLACK); kprintf("- Classic 1993 first-person shooter bare-metal linear framebuffer port.\n");
         vga_set_color(VGA_LCYAN, VGA_BLACK); kprintf("  vsnake         "); vga_set_color(VGA_YELLOW, VGA_BLACK); kprintf("(v1.0.1) "); vga_set_color(VGA_WHITE, VGA_BLACK); kprintf("- Premium high-fidelity ASCII snake game for VNL Perfect Edition.\n");
         return;
     }
@@ -79,7 +77,6 @@ void cmd_vpkg(int argc, char **argv)
 
         if (strcmp(target, "neovim-vnl") == 0) { ver = "0.9.6"; }
         else if (strcmp(target, "htop-gui") == 0) { ver = "3.3.0"; }
-        else if (strcmp(target, "doom-generic") == 0) { ver = "1.8.0"; }
         else if (strcmp(target, "vsnake") == 0) { ver = "1.0.1"; }
         else {
             kprintf("vpkg: Package '%s' not found in upstream manifest.\n", target);

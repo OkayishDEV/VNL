@@ -21,15 +21,20 @@
 #include "gui.h"
 #include "elf_load.h"
 #include "vnet.h"
+#include "serial.h"
 
 extern void cmd_neovim_vnl(int argc, char **argv);
 extern void cmd_htop_gui(int argc, char **argv);
-extern void cmd_doom_generic(int argc, char **argv);
 extern void cmd_vsnake(int argc, char **argv);
 
 static void cmd_desktop(int argc, char **argv) {
     (void)argc; (void)argv;
-    desktop_run();
+    int pid = vnl_spawn_elf_path("/usr/bin/tinywl");
+    if (pid >= 0) {
+        sched_wait_pid((uint32_t)pid);
+    } else {
+        kprintf("ERROR: Failed to launch /usr/bin/tinywl\n");
+    }
 }
 
 static void cmd_ping(int argc, char **argv) {
@@ -81,7 +86,19 @@ static int readline(char *buf, int maxlen) {
     if (limit < 1) limit = 1;
 
     while (1) {
-        int k = keyboard_getkey();
+        int k = -1;
+        while (1) {
+            k = keyboard_poll();
+            if (k >= 0) break;
+            if (serial_received()) {
+                char c = serial_getchar();
+                if (c == '\r' || c == '\n') k = '\n';
+                else if (c == 127 || c == '\b') k = '\b';
+                else k = c;
+                break;
+            }
+            sched_yield();
+        }
         if (k == '\n') {
             vga_set_color(VGA_WHITE, VGA_BLACK);
             vga_set_cursor(start_row, start_col + len);
@@ -295,7 +312,7 @@ static void cmd_help(int c, char **v)   { (void)c;(void)v;
     kprintf("          ls cat write mkdir rm cd pwd\n");
     kprintf("          ps kill sleep lspci poweroff reboot panic halt\n");
     kprintf("          sh bash eval source ring3test gui guiinfo vinstall vpkg desktop\n");
-    kprintf("          neovim htop doom\n");
+    kprintf("          neovim htop\n");
     kprintf("          grep wc head tail sort uniq tr tee\n");
     kprintf("Shell: Variables, if/while/for, pipes, redirects, functions\n");
 }
@@ -556,9 +573,13 @@ static void cmd_gui(int c, char **v) {
         kprintf("gui: linear framebuffer required (boot base entry with 1024x768 FB).\n");
         return;
     }
-    kprintf("Launching premium interactive bare-metal GUI desktop...\n");
-    gui_session_run();
-    kprintf("  GUI session ended.\n");
+    kprintf("Launching tinywl Wayland compositor...\n");
+    int pid = vnl_spawn_elf_path("/usr/bin/tinywl");
+    if (pid >= 0) {
+        sched_wait_pid((uint32_t)pid);
+    } else {
+        kprintf("ERROR: Failed to launch /usr/bin/tinywl\n");
+    }
 }
 
 typedef struct { const char *name; void (*fn)(int, char**); } Command;
@@ -577,7 +598,7 @@ static const Command cmds[] = {
     {"tail",cmd_tail},{"sort",cmd_sort},{"uniq",cmd_uniq},{"tr",cmd_tr},
     {"tee",cmd_tee},{"test",cmd_test_cmd},{"vinstall",cmd_vinstall},
     {"vpkg",cmd_vpkg},{"neovim",cmd_neovim_vnl},{"htop",cmd_htop_gui},
-    {"doom",cmd_doom_generic},{"desktop",cmd_desktop},{"vbrowser",NULL},{"ping",cmd_ping},{"netcfg",cmd_netcfg},{"vsnake",cmd_vsnake},{NULL,NULL}
+    {"desktop",cmd_desktop},{"vbrowser",NULL},{"ping",cmd_ping},{"netcfg",cmd_netcfg},{"vsnake",cmd_vsnake},{NULL,NULL}
 };
 
 static bool is_elf_file(const char *path) {

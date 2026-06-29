@@ -18,14 +18,7 @@
       "url": "https://raw.githubusercontent.com/VibuxDevs/VNL-Packages/main/pkgs/htop-gui.bin",
       "checksum": "f1e2d3c4b5a6",
       "size": 7048
-    },
-    {
-      "name": "doom-generic",
-      "version": "1.8.0",
-      "description": "Classic 1993 first-person shooter bare-metal linear framebuffer port.",
-      "url": "https://raw.githubusercontent.com/VibuxDevs/VNL-Packages/main/pkgs/doom-generic.bin",
-      "checksum": "c7b8a9f0e1d2",
-      "size": 6872
+
     },
     {
       "name": "vsnake",

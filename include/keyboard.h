@@ -15,4 +15,5 @@
 void keyboard_init(void);
 int  keyboard_getkey(void);   /* blocks; returns char (0-127) or KEY_* */
 int  keyboard_poll(void);     /* non-blocking; returns char/KEY_* or -1 */
+int  keyboard_poll_raw(void); /* non-blocking; returns raw scancode or -1 */
 char keyboard_getchar(void);  /* blocks; printable chars only */

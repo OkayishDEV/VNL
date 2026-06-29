@@ -8,6 +8,7 @@ SECTIONS {
     . = 1M;
 
     .boot ALIGN(4096) : {
+        KEEP(*(.multiboot))
         KEEP(*(.multiboot2))
         *(.boot*)
     }

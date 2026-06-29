@@ -20,7 +20,7 @@ typedef struct PACKED {
 
 static bool     s_fb_ok;
 static FBInfo   s_fb;
-static uint8_t *s_fb_virt; /* identity VA == physical (PML4[0] maps 0–4 GiB) */
+uint8_t *s_fb_virt; /* mapped VA */
 
 static bool parse_fb_tag(uint64_t mb_phys, FBInfo *info)
 {
@@ -53,7 +53,21 @@ bool fb_multiboot_init(uint64_t mb_info_phys)
     s_fb_ok = false;
     s_fb_virt = NULL;
     if (!mb_info_phys) return false;
-    if (!parse_fb_tag(mb_info_phys, &s_fb)) return false;
+
+    extern uint32_t mb2_save_magic;
+    if (mb2_save_magic == 0x2BADB002) {
+        Multiboot1Info *m1 = (Multiboot1Info *)mb_info_phys;
+        if (!m1 || !(m1->flags & (1 << 12))) return false;
+        s_fb.addr = m1->framebuffer_addr;
+        s_fb.pitch = m1->framebuffer_pitch;
+        s_fb.width = m1->framebuffer_width;
+        s_fb.height = m1->framebuffer_height;
+        s_fb.bpp = m1->framebuffer_bpp;
+        s_fb.fb_type = m1->framebuffer_type;
+    } else {
+        if (!parse_fb_tag(mb_info_phys, &s_fb)) return false;
+    }
+
     if (s_fb.fb_type != 1) return false; /* RGB only */
     if (s_fb.bpp != 32) return false;
 

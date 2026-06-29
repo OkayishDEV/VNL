@@ -149,5 +149,5 @@ int vnl_spawn_elf_path(const char *path)
     }
 
     uint64_t rsp = VNL_USER_STACK_BASE + VNL_USER_STACK_PAGES * PAGE_SIZE - 16;
-    return task_create_user("Xorg", pml4, entry, rsp, brk, brk);
+    return task_create_user("tinywl", pml4, entry, rsp, brk, brk);
 }
