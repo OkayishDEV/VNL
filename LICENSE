@@ -1,17 +1,238 @@
-# THE OKAY-ISH LICENSE
+THE OKAY-ISH LICENSE
 
-## Version 2.0 (July 2026)
+Version 2.0 (July 2026)
 
-This package contains the full license structure previously drafted,
-with the following key terms:
+Copyright (c) 2026 OkayishDEV 
 
--   Strong copyleft.
--   Network source disclosure for hosted deployments.
--   Attribution preservation.
--   Commercial restrictions on selling the software itself.
--   Patent grant and patent retaliation.
--   Automatic termination and reinstatement.
--   Warranty disclaimer and limitation of liability.
+Permission is granted to any person or legal entity obtaining a copy of this Software to use, modify, reproduce, distribute, and host the Software, subject to the following terms and conditions.
+
+---
+
+1. Definitions
+
+For the purposes of this License:
+
+"Software" means the copyrighted work released under this License, including all source code, object code, binaries, libraries, build scripts, configuration files, assets, documentation, examples, test suites, patches, installer scripts, and other files distributed as part of the project.
+
+"Source Code" means the preferred form of the Software for making modifications. Source Code includes all files reasonably necessary to build, install, configure, run, and modify the Software.
+
+"Complete Corresponding Source" means the complete Source Code of the Software together with all build scripts, dependency manifests, configuration files, installation scripts, interface definitions, documentation, patches, and any other files required to produce a functionally equivalent build of the distributed or hosted version.
+
+"Covered Software" means:
+
+- the original Software;
+- every modified version;
+- every derivative work;
+- every port or translation;
+- every fork;
+- every adaptation;
+- every bundled version;
+- every dynamically or statically linked component derived from the Software;
+- every plugin, extension, module, addon, script, or package that incorporates substantial portions of the Software or is designed primarily to extend or modify the Software.
+
+Independent software that merely communicates with the Software using publicly documented interfaces, without incorporating copyrighted portions of the Software, is not Covered Software.
+
+"Distribute" means making the Software available to another person or legal entity by any means, including physical media, downloads, package repositories, container registries, peer-to-peer distribution, or any other transfer.
+
+"Network Deployment" means operating, executing, or hosting Covered Software so that any remote device, service, process, API, or user can interact with it over any network protocol, whether public or private.
+
+"You" means any individual or legal entity exercising rights granted under this License.
+
+"Licensor" means the copyright holder(s).
+
+---
+
+2. Grant of License
+
+Subject to compliance with this License, the Licensor grants You a perpetual, worldwide, non-exclusive, royalty-free copyright license to:
+
+- use the Software;
+- execute the Software;
+- study the Software;
+- modify the Software;
+- create derivative works;
+- reproduce the Software;
+- distribute the Software;
+- distribute modified versions;
+- host the Software.
+
+All rights not expressly granted remain reserved.
+
+---
+
+3. Strong Copyleft and Network Source Disclosure
+
+Your rights under this License are conditioned upon full compliance with this Section.
+
+If You Distribute or Network Deploy any Covered Software, whether modified or unmodified, You must:
+
+A. License Preservation
+
+License the entire Covered Software exclusively under this License.
+
+You may not impose additional legal, technical, contractual, or digital restrictions that reduce the rights granted by this License.
+
+---
+
+B. Source Code Availability
+
+Make the Complete Corresponding Source publicly available free of charge.
+
+The source must:
+
+- remain continuously available while the Covered Software is distributed or deployed;
+- be downloadable without payment;
+- be provided in machine-readable form;
+- include the complete modification history that You distribute;
+- be available immediately upon public distribution or deployment.
+
+---
+
+C. Network Use
+
+Running Covered Software on:
+
+- servers;
+- cloud services;
+- multiplayer game servers;
+- APIs;
+- websites;
+- bots;
+- virtual machines;
+- containers;
+- SaaS platforms;
+- internal enterprise systems;
+- private services;
+- invitation-only services;
+
+constitutes Network Deployment.
+
+Every person capable of interacting with such deployment must be able to obtain the Complete Corresponding Source without charge.
+
+---
+
+D. Complete Source Requirement
+
+The Complete Corresponding Source must include:
+
+- build scripts;
+- installation scripts;
+- deployment scripts;
+- dependency manifests;
+- configuration files;
+- patches;
+- generated interface files;
+- documentation;
+- test files necessary for building;
+- assets required for normal operation.
+
+You may not intentionally omit files necessary to reproduce the distributed version.
+
+---
+
+E. Attribution
+
+You must preserve:
+
+- copyright notices;
+- license notices;
+- contributor credits;
+- source file headers.
+
+You may add Your own notices but may not remove or obscure existing ones.
+
+---
+
+4. Commercial Restrictions
+
+You may not:
+
+- sell the Software;
+- sell modified versions;
+- charge licensing fees for the Software;
+- sell proprietary wrappers that primarily consist of the Software.
+
+You may charge reasonable fees only for:
+
+- consulting;
+- customization;
+- technical support;
+- hosting;
+- installation;
+- training.
+
+Such services do not remove the obligations of this License.
+
+---
+
+5. Patent License
+
+Each contributor grants You a perpetual, worldwide, royalty-free patent license covering patent claims necessarily infringed by their contributions.
+
+---
+
+6. Patent Retaliation
+
+If You initiate patent litigation alleging that the Software infringes a patent, all patent licenses granted under this License terminate immediately for You.
+
+---
+
+7. Automatic Termination
+
+Any violation of this License immediately and automatically terminates the rights granted under it.
+
+---
+
+8. Reinstatement
+
+Rights automatically resume if:
+
+- the violation is corrected within 30 days of discovery; and
+- all outstanding obligations are fulfilled.
+
+Repeated or intentional violations may permanently terminate Your rights.
+
+---
+
+9. Trademarks
+
+This License grants no rights to use the Licensor's trademarks, logos, service marks, or branding except as necessary to accurately identify the Software.
+
+---
+
+10. Contributions
+
+Unless explicitly stated otherwise in writing, any contribution intentionally submitted for inclusion in the Software is licensed under this License.
+
+---
+
+11. Warranty Disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, OR NON-INFRINGEMENT.
+
+---
+
+12. Limitation of Liability
+
+IN NO EVENT SHALL ANY COPYRIGHT HOLDER OR CONTRIBUTOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES ARISING FROM THE USE OF THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+---
+
+13. Severability
+
+If any provision of this License is held unenforceable, the remaining provisions shall remain in full force and effect.
+
+---
+
+14. Entire Agreement
+
+This License constitutes the complete agreement governing the use, modification, distribution, and hosting of the Software.
+
+---
+
+15. Acceptance
+
+By exercising any rights granted under this License, You agree to be bound by its terms and conditions.
 
 ## 16. Artificial Intelligence Restrictions
 
